@@ -1,5 +1,5 @@
-from src.robot import Robot
-from src.stage import Goal, Stage
+from robot import Robot
+from stage import Goal, Stage
 
 
 def main():

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 
-from src.robot import Robot
+from robot import Robot
 
 
 @dataclass
