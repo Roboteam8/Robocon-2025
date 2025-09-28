@@ -1,11 +1,11 @@
-from src.stage import Stage, Goal
 from src.robot import Robot
+from src.stage import Goal, Stage
 
 
 def main():
     stage = Stage(
         width=5000,
-        height=3000,
+        depth=3000,
         wall=((800, 1500), (800, 3000)),
         goals=[
             Goal(position=(1900, 0), size=(800, 800), id=1),
@@ -13,7 +13,7 @@ def main():
             Goal(position=(0, 2200), size=(800, 800), id=3),
         ],
     )
-    robot = Robot(position=(0, 0), orientation=0.0, size=500)
+    robot = Robot(position=(4750, 250), orientation=0.0, size=500)
 
     stage.robot = robot  # ロボットをステージに配置
     stage.preview_stage()
