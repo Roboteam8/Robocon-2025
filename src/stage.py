@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import numpy as np
 
 from robot import Robot
 
@@ -35,7 +36,7 @@ class Stage:
         # ステージの枠を描画
         ax.add_patch(
             patches.Rectangle(
-                (0, 0), self.width, self.depth, fill=None, edgecolor="black"
+                (0, 0), self.width, self.depth, fill=None, edgecolor="black", zorder=10
             )
         )
 
@@ -69,12 +70,23 @@ class Stage:
         if self.robot:
             rx, ry = self.robot.position
             size = self.robot.size
+            orientation = np.radians(self.robot.orientation)
             ax.add_patch(
                 patches.Circle(
                     (rx, ry),
                     radius=size // 2,
                     fill=True,
                     edgecolor="blue",
+                )
+            )
+            ax.add_patch(
+                patches.Arrow(
+                    rx,
+                    ry,
+                    (size // 2) * np.cos(orientation),
+                    (size // 2) * np.sin(orientation),
+                    width=10,
+                    color="red",
                 )
             )
             ax.text(rx, ry, "Robot", color="white", ha="center", va="center")
