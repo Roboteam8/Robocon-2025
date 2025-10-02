@@ -13,7 +13,7 @@ def main():
             Goal(position=(0, 2200), size=(800, 800), id=3),
         ],
     )
-    robot = Robot(position=(4750, 250), orientation=135.0, size=500)
+    robot = Robot(position=(4750, 250), rotation=135.0, size=500)
 
     stage.robot = robot  # ロボットをステージに配置
     stage.preview_stage()
