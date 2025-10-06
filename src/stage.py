@@ -22,9 +22,11 @@ class Goal:
 class Stage:
     """ステージの情報を管理するクラス"""
 
-    width: int  # ステージの横幅 (mm)
-    depth: int  # ステージの奥行 (mm)
-    wall: tuple[tuple[int, int], tuple[int, int]]  # 壁の位置 ((x1, y1), (x2, y2))
+    x_size: int  # ステージのx方向サイズ (mm)
+    y_size: int  # ステージのy方向サイズ (mm)
+    walls: list[
+        tuple[tuple[int, int], tuple[int, int]]
+    ]  # 壁のリスト [((x1, y1), (x2, y2)), ...]
     goals: list[Goal]  # ゴールのリスト
 
     robot: Robot | None = None  # ロボット (Nullable)
@@ -38,7 +40,12 @@ class Stage:
         # ステージの枠を描画
         ax.add_patch(
             patches.Rectangle(
-                (0, 0), self.width, self.depth, fill=None, edgecolor="black", zorder=10
+                (0, 0),
+                self.x_size,
+                self.y_size,
+                fill=None,
+                edgecolor="black",
+                zorder=10,
             )
         )
 
@@ -57,16 +64,15 @@ class Stage:
             )
 
         # 壁を描画
-        (x1, y1), (x2, y2) = self.wall
-        ax.add_patch(
-            patches.Rectangle(
-                (x1, y1),
-                x2 - x1,
-                y2 - y1,
-                edgecolor="brown",
-                facecolor="saddlebrown",
+        for wall in self.walls:
+            (x1, y1), (x2, y2) = wall
+            ax.plot(
+                [x1, x2],
+                [y1, y2],
+                color="brown",
+                linewidth=5,
+                solid_capstyle="butt",
             )
-        )
 
         robot_artists: list[Artist] = []
 
@@ -137,7 +143,7 @@ class Stage:
             return robot_artists
 
         # アニメーションの設定
-        ani = animation.FuncAnimation(plt.gcf(), tick, frames=200, interval=100)
+        ani = animation.FuncAnimation(plt.gcf(), tick, frames=200, interval=100)  # noqa: F841
 
         # クリックイベントの設定
         def on_click(event):
@@ -153,8 +159,8 @@ class Stage:
         # 見た目の調整
         ax.set_aspect("equal", adjustable="box")
         plt.title("Stage Preview")
-        plt.xlim(-500, self.width + 500)
-        plt.ylim(-500, self.depth + 500)
+        plt.xlim(-500, self.x_size + 500)
+        plt.ylim(-500, self.y_size + 500)
         plt.axis("off")
         plt.grid()
 

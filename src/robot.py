@@ -7,14 +7,14 @@ import numpy as np
 class Robot:
     """ロボットの情報を管理するクラス"""
 
-    position: tuple[int, int]  # ロボットの位置 (x, y)
+    position: tuple[float, float]  # ロボットの位置 (x, y)
     rotation: float  # ロボットの向き (degrees)
     size: int  # ロボットのサイズ (diameter in mm)
 
-    destination: tuple[int, int] | None = None  # ロボットの目的地 (Nullable)
+    destination: tuple[float, float] | None = None  # ロボットの目的地 (Nullable)
 
-    _rotation_speed: float = 9.0  # ロボットの回転速度 (degrees per tick)
-    _movement_speed: float = 20.0  # ロボットの移動速度 (mm per tick)
+    _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)
+    _movement_speed: float = 100.0  # ロボットの移動速度 (mm per tick)
 
     def tick(self):
         """ロボットの状態を更新する関数"""

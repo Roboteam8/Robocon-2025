@@ -4,9 +4,9 @@ from stage import Goal, Stage
 
 def main():
     stage = Stage(
-        width=5000,
-        depth=3000,
-        wall=((800, 1500), (800, 3000)),
+        x_size=5000,
+        y_size=3000,
+        walls=[((800, 0), (800, 1000)), ((800, 2000), (800, 3000))],
         goals=[
             Goal(position=(1900, 0), size=(800, 800), id=1),
             Goal(position=(3300, 2200), size=(800, 800), id=2),
