@@ -9,8 +9,10 @@ class Robot:
 
     position: tuple[float, float]  # ロボットの位置 (x, y)
     rotation: float  # ロボットの向き (degrees)
+
     size: int  # ロボットのサイズ (diameter in mm)
 
+    # こっから下適当に付けたやつなんで消してもいいです
     destination: tuple[float, float] | None = None  # ロボットの目的地 (Nullable)
 
     _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)
