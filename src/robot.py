@@ -7,10 +7,27 @@ import numpy as np
 class Robot:
     """ロボットの情報を管理するクラス"""
 
+    size: int  # ロボットのサイズ (diameter in mm)
+
     position: tuple[float, float]  # ロボットの位置 (x, y)
     rotation: float  # ロボットの向き (degrees)
 
-    size: int  # ロボットのサイズ (diameter in mm)
+    _MAX_STEERING_ANGLE = 45.0  # 最大操舵角度 (degrees)
+
+    _r_speed = 0.0  # 右車輪の速度
+    _l_speed = 0.0  # 左車輪の速度
+
+    def pickup_box(self):
+        """ロボットが箱を拾う動作をする関数"""
+        pass
+
+    def drop_box(self):
+        """ロボットが箱を置く動作をする関数"""
+        pass
+
+    def read_ar_marker(self):
+        """ARマーカーを読み取り、プロパティを更新する関数"""
+        pass
 
     # こっから下適当に付けたやつなんで消してもいいです
     destination: tuple[float, float] | None = None  # ロボットの目的地 (Nullable)
