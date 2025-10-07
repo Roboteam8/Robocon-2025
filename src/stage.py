@@ -31,7 +31,7 @@ class Stage:
 
     robot: Robot | None = None  # ロボット (Nullable)
 
-    def preview_stage(self):
+    def preview_stage(self, path: np.ndarray | None = None):
         """ステージのプレビューを表示する関数"""
 
         # 描画の準備
@@ -73,6 +73,10 @@ class Stage:
                 linewidth=5,
                 solid_capstyle="butt",
             )
+
+        # 経路を描画
+        if path is not None:
+            ax.plot(path[:, 0], path[:, 1], color="red", linestyle="--", zorder=15)
 
         robot_artists: list[Artist] = []
 

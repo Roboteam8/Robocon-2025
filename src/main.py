@@ -1,3 +1,4 @@
+from pathfinding import find_path
 from robot import Robot
 from stage import Goal, Stage
 
@@ -16,7 +17,12 @@ def main():
     robot = Robot(position=(4750, 250), rotation=135.0, size=500)
 
     stage.robot = robot  # ロボットをステージに配置
-    stage.preview_stage()
+
+    destination = (250, 250)
+    path = find_path(stage, robot.position, destination)
+    if path is not None:
+        robot.set_path(path)
+    stage.preview_stage(path)
 
 
 if __name__ == "__main__":
