@@ -11,28 +11,28 @@ pwm_right.start(0)
 
 def set_angle(pwm, angle):
     """PWMに角度を送る"""
-    angle = max(0, min(180, angle))
+    angle = max(0, min(180, angle))  # 安全範囲制限
     duty = 2 + (angle / 18)
     pwm.ChangeDutyCycle(duty)
     time.sleep(0.3)
     pwm.ChangeDutyCycle(0)
 
 try:
-    print("右サーボ 右回転テスト開始")
+    print("右サーボ 初期位置補正 + 右回転テスト開始")
 
-    # 初期位置（今の正しい位置を維持）
-    initial_angle = 0
+    # 初期位置を20°左へ補正（見た目の中心に合わせる）
+    initial_angle = 20
     set_angle(pwm_right, initial_angle)
     time.sleep(1)
 
-    # 🔁 回転方向を反転：angle を増やすと右回転になるように補正
+    # 右回転方向（時計回り）へ動かす
     for offset in range(0, 41, 5):  # 0→5→...→40
-        target_angle = initial_angle + (40 - offset)  # ←ここで右回転方向を反転
+        target_angle = initial_angle + offset  # 正方向が右回転
         print(f"右回転: {target_angle}°")
         set_angle(pwm_right, target_angle)
         time.sleep(0.5)
 
-    # 元の位置に戻す
+    # 初期位置に戻す
     set_angle(pwm_right, initial_angle)
     print("テスト完了")
 
@@ -42,3 +42,4 @@ except KeyboardInterrupt:
 finally:
     pwm_right.stop()
     GPIO.cleanup()
+
