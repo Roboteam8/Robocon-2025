@@ -62,7 +62,7 @@ try:
         else:
             print(f"距離: {dist} cm")
             # 距離が 17±3 cm の範囲
-            if 12 <= dist <= 18:
+            if 8 <= dist <= 15:
                 set_angle(pwm_left, 40)
                 set_angle(pwm_right, -40)
             else:
