@@ -2,8 +2,8 @@ import RPi.GPIO as GPIO
 import time
 
 # --- ピン設定 ---
-TRIG = 23
-ECHO = 24
+TRIG = 2
+ECHO = 3
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(TRIG, GPIO.OUT)
