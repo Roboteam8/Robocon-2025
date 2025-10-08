@@ -1,45 +1,44 @@
 import RPi.GPIO as GPIO
 import time
 
-# --- サーボ設定 ---
-RIGHT_SERVO_PIN = 18
+SERVO_RIGHT = 26  # 右サーボGPIOピン
+
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(RIGHT_SERVO_PIN, GPIO.OUT)
+GPIO.setup(SERVO_RIGHT, GPIO.OUT)
 
-servo = GPIO.PWM(RIGHT_SERVO_PIN, 50)  # 50HzでPWM生成
-servo.start(0)
+pwm_right = GPIO.PWM(SERVO_RIGHT, 50)
+pwm_right.start(0)
 
-def set_angle(angle):
-    duty = 2.5 + (angle / 18)
-    GPIO.output(RIGHT_SERVO_PIN, True)
-    servo.ChangeDutyCycle(duty)
-    time.sleep(0.4)
-    GPIO.output(RIGHT_SERVO_PIN, False)
-    servo.ChangeDutyCycle(0)
+def set_angle(pwm, angle):
+    """PWMに角度を送る"""
+    angle = max(0, min(180, angle))
+    duty = 2 + (angle / 18)
+    pwm.ChangeDutyCycle(duty)
+    time.sleep(0.3)
+    pwm.ChangeDutyCycle(0)
 
 try:
-    print("右サーボ テスト開始")
+    print("右サーボ 右回転テスト開始")
 
-    # --- 初期位置（少し左寄り = 70°） ---
-    print("初期位置（70°）へ移動中...")
-    set_angle(70)
+    # 初期位置（今の正しい位置を維持）
+    initial_angle = 0
+    set_angle(pwm_right, initial_angle)
     time.sleep(1)
 
-    # --- 右回転テスト ---
-    print("右へ回転（110°へ）...")
-    set_angle(110)
-    time.sleep(1)
+    # 🔁 回転方向を反転：angle を増やすと右回転になるように補正
+    for offset in range(0, 41, 5):  # 0→5→...→40
+        target_angle = initial_angle + (40 - offset)  # ←ここで右回転方向を反転
+        print(f"右回転: {target_angle}°")
+        set_angle(pwm_right, target_angle)
+        time.sleep(0.5)
 
-    # --- 元に戻す ---
-    print("中央（70°）へ戻す...")
-    set_angle(70)
-    time.sleep(1)
-
+    # 元の位置に戻す
+    set_angle(pwm_right, initial_angle)
     print("テスト完了")
 
 except KeyboardInterrupt:
-    print("終了します")
+    pass
 
 finally:
-    servo.stop()
+    pwm_right.stop()
     GPIO.cleanup()
