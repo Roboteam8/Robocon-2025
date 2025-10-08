@@ -26,8 +26,8 @@ try:
     time.sleep(1)
 
     # 🔁 回転方向を反転：angle を増やすと右回転になるように補正
-    for offset in range(0, 40, 5):  # 0→5→...→40
-        target_angle = initial_angle + (40 - offset)  # ←ここで右回転方向を反転
+    for offset in range(0,40 , 5):  # 0→5→...→40
+        target_angle = initial_angle - (40 - offset)  # ←ここで右回転方向を反転
         print(f"右回転: {target_angle}°")
         set_angle(pwm_right, target_angle)
         time.sleep(0.5)
