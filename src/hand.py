@@ -21,11 +21,6 @@ pwm_right.start(0)
 
 # ===== サーボ角度設定関数 =====
 def set_angle(pwm, angle):
-    """
-    PWMに送る角度を設定
-    angle: 0～180の範囲
-    """
-    # デューティ比の範囲はサーボに合わせて微調整可能
     duty = 2 + (angle / 18)
     pwm.ChangeDutyCycle(duty)
     time.sleep(0.5)
@@ -55,7 +50,7 @@ def get_distance(trig, echo, timeout=1.0):
 
 # ===== サーボ初期化 =====
 set_angle(pwm_left, 0)    # 左サーボ初期0°
-set_angle(pwm_right, 90)  # 右サーボ中央90°
+set_angle(pwm_right, 90)  # 右サーボ中央位置
 
 # ===== メインループ =====
 try:
@@ -70,10 +65,10 @@ try:
             print(f"距離: {dist} cm")
             if 5 <= dist <= 15:  # 10±5cm
                 set_angle(pwm_left, 40)
-                set_angle(pwm_right, 70)  # 中央90°を基準に-20°（50°より安全）
+                set_angle(pwm_right, 130)  # 右サーボ右回転（90+40）
             else:
                 set_angle(pwm_left, 0)
-                set_angle(pwm_right, 90)
+                set_angle(pwm_right, 90)   # 右サーボ中央
 
         time.sleep(1)
 
@@ -84,3 +79,4 @@ finally:
     pwm_left.stop()
     pwm_right.stop()
     GPIO.cleanup()
+
