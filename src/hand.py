@@ -2,7 +2,7 @@ import RPi.GPIO as GPIO
 import time
 
 # ===== GPIO設定 =====
-TRIG = 2       # 超音波センサー
+TRIG = 2
 ECHO = 3
 SERVO_LEFT = 21
 SERVO_RIGHT = 26
@@ -34,18 +34,20 @@ def get_distance(trig, echo, timeout=1.0):
 
     start_time = time.time()
 
+    # パルス開始待ち
     while GPIO.input(echo) == 0:
         pulse_start = time.time()
         if pulse_start - start_time > timeout:
             return None
 
+    # パルス終了待ち
     while GPIO.input(echo) == 1:
         pulse_end = time.time()
         if pulse_end - start_time > timeout:
             return None
 
     pulse_duration = pulse_end - pulse_start
-    distance = pulse_duration * 17150
+    distance = pulse_duration * 17150  # cmに変換
     return round(distance, 2)
 
 # ===== メインループ =====
@@ -59,7 +61,8 @@ try:
             set_angle(pwm_right, 0)
         else:
             print(f"距離: {dist} cm")
-            if dist <= 20:  # 閾値
+            # 距離が 17±3 cm の範囲
+            if 14 <= dist <= 20:
                 set_angle(pwm_left, 40)
                 set_angle(pwm_right, -40)
             else:
