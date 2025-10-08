@@ -16,8 +16,9 @@ def set_angle(pwm, angle):
     time.sleep(0.3)
     pwm.ChangeDutyCycle(0)
 
-# ===== 右サーボ中央位置 =====
-center_right = 90
+# ===== ソフト上で中央位置を再定義 =====
+# 物理的に逆向きなら180、通常なら90
+center_right = 180  # ここを変えると中央を補正可能
 
 try:
     print("右サーボ段階テスト開始")
@@ -27,16 +28,19 @@ try:
     time.sleep(1)
 
     # 右回転方向に段階的に動かす（0〜40°オフセット）
-    for offset in range(0, 41, 5):  # 0,5,10,...,40
+    for offset in range(0, 41, 5):
         target_angle = center_right + offset
+        # 180°を超えないように制限
+        target_angle = min(target_angle, 180)
         print(f"右回転: {target_angle}°")
         set_angle(pwm_right, target_angle)
 
     time.sleep(1)
 
     # 左回転方向に段階的に動かす（0〜-40°オフセット）
-    for offset in range(0, -41, -5):  # 0,-5,-10,...,-40
+    for offset in range(0, -41, -5):
         target_angle = center_right + offset
+        target_angle = max(target_angle, 0)
         print(f"左回転: {target_angle}°")
         set_angle(pwm_right, target_angle)
 
