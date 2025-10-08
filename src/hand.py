@@ -1,9 +1,7 @@
 import RPi.GPIO as GPIO
 import time
 
-# -----------------------------
-# GPIO設定
-# -----------------------------
+# ===== GPIO設定 =====
 TRIG = 2
 ECHO = 3
 SERVO_LEFT = 21
@@ -15,94 +13,78 @@ GPIO.setup(ECHO, GPIO.IN)
 GPIO.setup(SERVO_LEFT, GPIO.OUT)
 GPIO.setup(SERVO_RIGHT, GPIO.OUT)
 
-pwm_left = GPIO.PWM(SERVO_LEFT, 50)
+# ===== サーボPWM設定 =====
+pwm_left = GPIO.PWM(SERVO_LEFT, 50)   # 50Hz
 pwm_right = GPIO.PWM(SERVO_RIGHT, 50)
 pwm_left.start(0)
 pwm_right.start(0)
 
-# -----------------------------
-# サーボ制御関数
-# -----------------------------
-def set_angle(pwm, angle, reverse=False):
+# ===== サーボ角度設定関数 =====
+def set_angle(pwm, angle):
     """
-    pwm: PWMオブジェクト
-    angle: 0〜180
-    reverse: Trueなら逆回転モード
+    PWMに送る角度を設定
+    angle: 0～180の範囲
     """
-    angle = max(0, min(180, angle))
-    if reverse:
-        duty = 2.5 + ((180 - angle) / 18)
-    else:
-        duty = 2.5 + (angle / 18)
+    duty = 2 + (angle / 18)  # SG90などの標準サーボ用
     pwm.ChangeDutyCycle(duty)
-    time.sleep(0.5)
-    pwm.ChangeDutyCycle(0)
+    time.sleep(0.5)           # サーボが動く時間を確保
+    pwm.ChangeDutyCycle(0)    # 動作後はパルスを止める
 
-# -----------------------------
-# 超音波距離測定関数
-# -----------------------------
-def measure_distance(timeout=0.03):
-    GPIO.output(TRIG, False)
-    time.sleep(0.05)
-    GPIO.output(TRIG, True)
+# ===== 超音波距離測定関数（タイムアウト付き） =====
+def get_distance(trig, echo, timeout=1.0):
+    """
+    超音波センサーで距離を測定
+    timeout: センサーが応答しない場合の最大待機時間（秒）
+    戻り値: cm, 測定失敗時は None
+    """
+    GPIO.output(trig, True)
     time.sleep(0.00001)
-    GPIO.output(TRIG, False)
+    GPIO.output(trig, False)
 
-    pulse_start = time.time()
     start_time = time.time()
-    while GPIO.input(ECHO) == 0:
+
+    # パルス開始待ち
+    while GPIO.input(echo) == 0:
         pulse_start = time.time()
         if pulse_start - start_time > timeout:
-            return None
+            return None  # タイムアウト
 
-    pulse_end = time.time()
-    while GPIO.input(ECHO) == 1:
+    # パルス終了待ち
+    while GPIO.input(echo) == 1:
         pulse_end = time.time()
-        if pulse_end - pulse_start > timeout:
-            return None
+        if pulse_end - start_time > timeout:
+            return None  # タイムアウト
 
     pulse_duration = pulse_end - pulse_start
     distance = pulse_duration * 17150  # cm換算
     return round(distance, 2)
 
-# -----------------------------
-# メインループ
-# -----------------------------
+# ===== メインループ =====
 try:
-    print("サーボ＆超音波テスト開始")
-
-    # 初期位置
-    left_angle = 10
-    right_angle = 10
-    set_angle(pwm_left, left_angle)
-    set_angle(pwm_right, right_angle, reverse=True)
-    time.sleep(1)
-
     while True:
-        dist = measure_distance()
+        dist = get_distance(TRIG, ECHO)
+
         if dist is None:
             print("距離が測れません")
-            time.sleep(1)
-            continue
-
-        print(f"距離: {dist} cm")
-
-        # 距離が10cm ±5cmならサーボ動作
-        if 5 <= dist <= 15:
-            # 左サーボ：数字増やして右回転
-            left_angle = min(left_angle + 10, 180)
-            set_angle(pwm_left, left_angle)
-            # 右サーボ：逆回転モード、数字増やして右回転
-            right_angle = min(right_angle + 10, 180)
-            set_angle(pwm_right, right_angle, reverse=True)
+            set_angle(pwm_left, 0)    # 左サーボ安全位置
+            set_angle(pwm_right, 90)  # 右サーボ中央位置
         else:
-            print("距離範囲外のためサーボ停止")
+            print(f"距離: {dist} cm")
+            # 距離が10±5cmの範囲でサーボを動作
+            if 5 <= dist <= 15:
+                set_angle(pwm_left, 40)   # 左サーボ40°
+                set_angle(pwm_right, 50)  # 右サーボ中央90°を基準に-40° → 50°
+            else:
+                set_angle(pwm_left, 0)
+                set_angle(pwm_right, 90)
+
         time.sleep(1)
 
 except KeyboardInterrupt:
-    print("終了")
+    print("終了します")
 
 finally:
     pwm_left.stop()
     pwm_right.stop()
     GPIO.cleanup()
+
