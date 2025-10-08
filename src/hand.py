@@ -21,7 +21,7 @@ try:
     print("右サーボ 右回転テスト開始")
 
     # 初期位置（今の正しい位置を維持）
-    initial_angle = 68
+    initial_angle = 108
     set_angle(pwm_right, initial_angle)
     time.sleep(1)
 
