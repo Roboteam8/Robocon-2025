@@ -67,7 +67,7 @@ try:
         if dist is None:
             print("距離が測れません")
             set_angle(pwm_left, 0)    # 左サーボ安全位置
-            set_angle(pwm_right, 90)  # 右サーボ中央位置
+            set_angle(pwm_right, 10)  # 右サーボ中央位置
         else:
             print(f"距離: {dist} cm")
             # 距離が10±5cmの範囲でサーボを動作
@@ -76,7 +76,7 @@ try:
                 set_angle(pwm_right, 50)  # 右サーボ中央90°を基準に-40° → 50°
             else:
                 set_angle(pwm_left, 0)
-                set_angle(pwm_right, 90)
+                set_angle(pwm_right, 10)
 
         time.sleep(1)
 
