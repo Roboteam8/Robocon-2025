@@ -18,7 +18,7 @@ def main():
 
     stage.robot = robot  # ロボットをステージに配置
 
-    destination = (250, 250)
+    destination = (250, 2750)
     path = find_path(stage, robot.position, destination)
     if path is not None:
         robot.set_path(path)
