@@ -1,7 +1,7 @@
 import RPi.GPIO as GPIO
 import time
 
-SERVO_RIGHT = 26
+SERVO_RIGHT = 26  # 右サーボのGPIOピン
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(SERVO_RIGHT, GPIO.OUT)
@@ -11,31 +11,28 @@ pwm_right.start(0)
 
 def set_angle(pwm, angle):
     """PWMに角度を送る"""
-    # 物理的制限：0°〜180°に制限
-    angle = max(0, min(180, angle))
+    angle = max(0, min(180, angle))  # 安全範囲制限
     duty = 2 + (angle / 18)
     pwm.ChangeDutyCycle(duty)
     time.sleep(0.3)
     pwm.ChangeDutyCycle(0)
 
-# 右サーボの物理的中央位置を0度として扱う
-# 右回転方向に段階的に動かす
 try:
-    print("右サーボ右回転テスト開始")
+    print("右サーボテスト開始")
 
-    # 初期位置0°
+    # 初期位置0°（左端）
     set_angle(pwm_right, 0)
     time.sleep(1)
 
-    # 右回転方向に段階的に動かす（0°→40°→80°→…最大180°）
-    for angle in range(0, 91, 10):  # 0°〜90°まで右回転
+    # 右回転0°→40°まで段階的に動かす
+    for angle in range(0, 41, 5):  # 0,5,10,...,40
         print(f"右回転: {angle}°")
         set_angle(pwm_right, angle)
         time.sleep(0.5)
 
-    # 最後に初期位置に戻す
+    # 右回転後、中央位置に戻す（0°）
     set_angle(pwm_right, 0)
-    print("テスト完了")
+    print("右サーボテスト完了")
 
 except KeyboardInterrupt:
     pass
