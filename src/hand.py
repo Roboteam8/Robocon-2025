@@ -33,12 +33,12 @@ try:
     print("右サーボ 逆回転テスト開始")
 
     # 初期位置を150度に設定
-    initial_angle = 150
+    initial_angle = 0
     set_angle(pwm_right, initial_angle)
     time.sleep(1)
 
     # 逆回転方向で右に動かす例（数値を減らすと右回転）
-    for target_angle in [150, 140, 130, 120, 110]:
+    for target_angle in [0, 10, 20, 30, 40]:
         print(f"右回転（逆モード）: {target_angle}°")
         set_angle(pwm_right, target_angle)
         time.sleep(0.5)
