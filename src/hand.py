@@ -2,9 +2,9 @@ import RPi.GPIO as GPIO
 import time
 
 # ===== GPIO設定 =====
-TRIG = 23   # トリガー
-ECHO = 24   # エコー
-SERVO = 18  # サーボ
+TRIG = 2   # トリガー
+ECHO = 3   # エコー
+SERVO = 21  # サーボ
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(TRIG, GPIO.OUT)
@@ -60,7 +60,7 @@ try:
             else:
                 set_angle(0)
 
-        time.sleep(1)
+        time.sleep(2)
 
 except KeyboardInterrupt:
     print("終了します")
