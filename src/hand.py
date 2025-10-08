@@ -11,41 +11,30 @@ pwm_right.start(0)
 
 def set_angle(pwm, angle):
     """PWMに角度を送る"""
+    # 物理的制限：0°〜180°に制限
+    angle = max(0, min(180, angle))
     duty = 2 + (angle / 18)
     pwm.ChangeDutyCycle(duty)
     time.sleep(0.3)
     pwm.ChangeDutyCycle(0)
 
-# ===== ソフト上で中央位置を再定義 =====
-# 物理的に逆向きなら180、通常なら90
-center_right = 180  # ここを変えると中央を補正可能
-
+# 右サーボの物理的中央位置を0度として扱う
+# 右回転方向に段階的に動かす
 try:
-    print("右サーボ段階テスト開始")
+    print("右サーボ右回転テスト開始")
 
-    # 中央位置にセット
-    set_angle(pwm_right, center_right)
+    # 初期位置0°
+    set_angle(pwm_right, 0)
     time.sleep(1)
 
-    # 右回転方向に段階的に動かす（0〜40°オフセット）
-    for offset in range(0, 41, 5):
-        target_angle = center_right + offset
-        # 180°を超えないように制限
-        target_angle = min(target_angle, 180)
-        print(f"右回転: {target_angle}°")
-        set_angle(pwm_right, target_angle)
+    # 右回転方向に段階的に動かす（0°→40°→80°→…最大180°）
+    for angle in range(0, 91, 10):  # 0°〜90°まで右回転
+        print(f"右回転: {angle}°")
+        set_angle(pwm_right, angle)
+        time.sleep(0.5)
 
-    time.sleep(1)
-
-    # 左回転方向に段階的に動かす（0〜-40°オフセット）
-    for offset in range(0, -41, -5):
-        target_angle = center_right + offset
-        target_angle = max(target_angle, 0)
-        print(f"左回転: {target_angle}°")
-        set_angle(pwm_right, target_angle)
-
-    # 最後に中央に戻す
-    set_angle(pwm_right, center_right)
+    # 最後に初期位置に戻す
+    set_angle(pwm_right, 0)
     print("テスト完了")
 
 except KeyboardInterrupt:
