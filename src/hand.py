@@ -7,7 +7,7 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(SERVO_RIGHT, GPIO.OUT)
 
 pwm_right = GPIO.PWM(SERVO_RIGHT, 50)  # 50Hz
-pwm_right.start(0)
+pwm_right.start(88)
 
 def set_angle(pwm, angle):
     """PWMに角度を送る"""
