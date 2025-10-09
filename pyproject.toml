@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=2.3.3",
     "scipy>=1.16.2",
     "scipy-stubs>=1.16.2.0",
+    "rpi-gpio>=0.7.1",
 ]
 
 [dependency-groups]
