@@ -1,24 +1,32 @@
+import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
+from matplotlib.animation import FuncAnimation
 from matplotlib.artist import Artist
 
-from robot import Robot
 from stage import Stage
 
 
-def preview(stage: Stage) -> tuple[Figure, Axes]:
+def preview(stage: Stage) -> None:
     """
     ステージのプレビューを表示する関数
 
     Args:
         stage (Stage): ステージの情報
     Returns:
-        fig (Figure): 描画オブジェクト
-        ax (Axes): 描画用の座標軸オブジェクト
+        None
     """
     fig, ax = plt.subplots()
+
+    # グローバル設定
+    plt.title("Stage Preview")
+
+    # 軸の設定
+    ax.set_xlim(-500, stage.x_size + 500)
+    ax.set_ylim(-500, stage.y_size + 500)
+    ax.axis("off")
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, which="both", linestyle="--", color="lightgray", zorder=1000)
 
     # ステージの枠
     ax.add_patch(
@@ -40,7 +48,6 @@ def preview(stage: Stage) -> tuple[Figure, Axes]:
             [y1, y2],
             color="black",
             linewidth=5,
-            zorder=20,
             solid_capstyle="butt",
         )
 
@@ -56,7 +63,6 @@ def preview(stage: Stage) -> tuple[Figure, Axes]:
                 fill=True,
                 color="green",
                 alpha=0.5,
-                zorder=30,
             )
         )
         ax.text(
@@ -66,13 +72,79 @@ def preview(stage: Stage) -> tuple[Figure, Axes]:
             fontsize=20,
             ha="center",
             va="center",
-            zorder=40,
         )
 
-    robot_artists: list[Artist] = []
+    animated: list[Artist] = []
 
     # ロボットの描画関数
-    def draw_robot(ax: Axes, robot: Robot) -> list[Artist]:
-        return robot_artists
+    def update(*_) -> list[Artist]:
+        # 前フレームのロボットを削除
+        while animated:
+            artist = animated.pop()
+            artist.remove()
 
-    return fig, ax
+        # ロボットのプロパティ
+        x, y = stage.robot.position
+        size = stage.robot.size
+        radius = size / 2
+        angle_rad = np.deg2rad(stage.robot.rotation)
+
+        # ロボットの円
+        circle = patches.Circle(
+            (x, y),
+            radius,
+            fill=True,
+            color="blue",
+        )
+        animated.append(ax.add_patch(circle))
+
+        # ロボットの向きを示す矢印
+        arrow_length = radius * 1.2
+        arrow_dx = arrow_length * np.cos(angle_rad)
+        arrow_dy = arrow_length * np.sin(angle_rad)
+        arrow = patches.FancyArrow(
+            x,
+            y,
+            arrow_dx,
+            arrow_dy,
+            width=size * 0.05,
+            length_includes_head=True,
+            color="white",
+            head_width=size * 0.1,
+            head_length=size * 0.1,
+        )
+        animated.append(ax.add_patch(arrow))
+
+        # ロボットの中心点
+        center_dot = patches.Circle(
+            (x, y),
+            size * 0.05,
+            color="red",
+        )
+        animated.append(ax.add_patch(center_dot))
+
+        # ロボットの座標と角度表示
+        info_text = f"Pos: ({x}, {y})\nAngle: {stage.robot.rotation:.1f}°"
+        text_artist = ax.text(
+            stage.x_size + 100,
+            stage.y_size / 2,  # ステージの右側に表示
+            info_text,
+            fontsize=8,
+            ha="left",
+            va="center",
+        )
+        animated.append(text_artist)
+
+        return animated
+
+    # 初期描画
+    update()
+
+    _ = FuncAnimation(
+        fig,
+        update,
+        frames=200,
+        interval=100,
+    )
+
+    plt.show()
