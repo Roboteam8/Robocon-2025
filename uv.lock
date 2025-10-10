@@ -125,27 +125,29 @@ source = { virtual = "." }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "rpi-gpio", marker = "sys_platform == 'linux'" },
     { name = "scipy" },
-    { name = "scipy-stubs" },
-    { name = "rpi-gpio" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "ruff" },
+    { name = "scipy-stubs" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "numpy", specifier = ">=2.3.3" },
-    { name = "rpi-gpio", specifier = ">=0.7.1" },
+    { name = "rpi-gpio", marker = "sys_platform == 'linux'", specifier = ">=0.7.1" },
     { name = "scipy", specifier = ">=1.16.2" },
-    { name = "scipy-stubs", specifier = ">=1.16.2.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.13.1" }]
+dev = [
+    { name = "ruff", specifier = ">=0.13.1" },
+    { name = "scipy-stubs", specifier = ">=1.16.2.0" },
+]
 
 [[package]]
 name = "kiwisolver"
