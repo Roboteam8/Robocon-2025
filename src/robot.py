@@ -1,6 +1,14 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+from pathfinding import find_path
+
+if TYPE_CHECKING:
+    from stage import Stage
 
 
 @dataclass
@@ -12,25 +20,8 @@ class Robot:
     position: tuple[int, int]  # ロボットの位置 (x, y)
     rotation: float  # ロボットの向き (degrees)
 
-    _MAX_STEERING_ANGLE = 45.0  # 最大操舵角度 (degrees)
-    _MIN_TURNING_RADIUS: float = field(
-        init=False
-    )  # 最小回転半径 (mm), 初期値は0、__post_init__で計算
-
     _r_speed = 0.0  # 右車輪の速度
     _l_speed = 0.0  # 左車輪の速度
-
-    def __post_init__(self):
-        """初期化後に最小回転半径を計算"""
-        if np.sin(np.radians(self._MAX_STEERING_ANGLE)) == 0:
-            # 操舵角度が0の場合は無限大とする（直進のみ）
-            self._MIN_TURNING_RADIUS = float("inf")
-        else:
-            # L / sin(α) で計算 (Lはホイールベース、ここではsize/2と仮定)
-            wheelbase = self.size / 2
-            self._MIN_TURNING_RADIUS = wheelbase / np.sin(
-                np.radians(self._MAX_STEERING_ANGLE)
-            )
 
     def pickup_box(self):
         """ロボットが箱を拾う動作をする関数"""
@@ -47,7 +38,10 @@ class Robot:
     path: np.ndarray | None = field(default=None, repr=False)  # 走行経路
     _path_index: int = 0
 
-    destination: tuple[float, float] | None = None  # ロボットの目的地 (Nullable)
+    def set_destination(self, stage: Stage, destination: tuple[int, int]):
+        """目的地を設定する関数"""
+        self.path = find_path(stage, self.position, destination)
+        self._path_index = 0
 
     _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)
     _movement_speed: float = 100.0  # ロボットの移動速度 (mm per tick)
@@ -88,8 +82,3 @@ class Robot:
             # 次の目的地に近づいたらインデックスを進める
             if distance < self._movement_speed:
                 self._path_index += 1
-
-    def set_path(self, path: np.ndarray):
-        """経路を設定する関数"""
-        self.path = path
-        self._path_index = 0

@@ -1,10 +1,16 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
-from matplotlib.artist import Artist
 
-from stage import Stage
+if TYPE_CHECKING:
+    from matplotlib.artist import Artist
+
+    from stage import Stage
 
 
 def preview(stage: Stage) -> None:
@@ -76,12 +82,26 @@ def preview(stage: Stage) -> None:
 
     animated: list[Artist] = []
 
-    # ロボットの描画関数
+    # 変化物の描画関数
     def update(*_) -> list[Artist]:
-        # 前フレームのロボットを削除
+        # 前フレームの描画を削除
         while animated:
             artist = animated.pop()
             artist.remove()
+
+        stage.robot.tick()
+
+        # 経路の描画
+        if stage.robot.path is not None:
+            path = stage.robot.path
+            lines = ax.plot(
+                path[:, 0],
+                path[:, 1],
+                color="red",
+                linewidth=2,
+                linestyle="--",
+            )
+            animated.extend(lines)
 
         # ロボットのプロパティ
         x, y = stage.robot.position
@@ -146,5 +166,22 @@ def preview(stage: Stage) -> None:
         frames=200,
         interval=100,
     )
+
+    def on_click(event) -> None:
+        if event.inaxes != ax:
+            return
+        if event.button == 1:  # 左クリックで目的地設定
+            dest_x = event.xdata
+            dest_y = event.ydata
+            if 0 <= dest_x <= stage.x_size and 0 <= dest_y <= stage.y_size:
+                stage.robot.set_destination(stage, (int(dest_x), int(dest_y)))
+                update()
+                plt.draw()
+        elif event.button == 3:  # 右クリックで経路クリア
+            stage.robot.path = None
+            update()
+            plt.draw()
+
+    fig.canvas.mpl_connect("button_press_event", on_click)
 
     plt.show()
