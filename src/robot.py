@@ -1,14 +1,6 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 import numpy as np
-
-from pathfinding import find_path
-
-if TYPE_CHECKING:
-    from stage import Stage
 
 
 @dataclass
@@ -38,9 +30,9 @@ class Robot:
     path: np.ndarray | None = field(default=None, repr=False)  # 走行経路
     _path_index: int = 0
 
-    def set_destination(self, stage: Stage, destination: tuple[int, int]):
-        """目的地を設定する関数"""
-        self.path = find_path(stage, self.position, destination)
+    def set_path(self, path: np.ndarray) -> None:
+        """経路を設定する関数"""
+        self.path = path
         self._path_index = 0
 
     _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)

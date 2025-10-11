@@ -1,16 +1,11 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 import numpy as np
 from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib.artist import Artist
 
-if TYPE_CHECKING:
-    from matplotlib.artist import Artist
-
-    from stage import Stage
+from pathfinding import find_path
+from stage import Stage
 
 
 def preview(stage: Stage) -> None:
@@ -174,7 +169,9 @@ def preview(stage: Stage) -> None:
             dest_x = event.xdata
             dest_y = event.ydata
             if 0 <= dest_x <= stage.x_size and 0 <= dest_y <= stage.y_size:
-                stage.robot.set_destination(stage, (int(dest_x), int(dest_y)))
+                path = find_path(stage, stage.robot.position, (dest_x, dest_y))
+                if path is not None:
+                    stage.robot.set_path(path)
                 update()
                 plt.draw()
         elif event.button == 3:  # 右クリックで経路クリア

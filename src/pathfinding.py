@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 import heapq
-from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy.interpolate import splev, splprep
 
-if TYPE_CHECKING:
-    from stage import Stage
+from stage import Stage
 
 
 def find_path(
