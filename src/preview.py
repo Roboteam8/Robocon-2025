@@ -3,8 +3,10 @@ from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.artist import Artist
+from matplotlib.axes import Axes
+from matplotlib.backend_bases import Event, MouseEvent
+from matplotlib.figure import Figure
 
-from pathfinding import find_path
 from stage import Stage
 
 
@@ -17,34 +19,31 @@ def preview(stage: Stage) -> None:
     Returns:
         None
     """
-    fig, ax = plt.subplots()
+    plotdata: tuple[Figure, list[Axes]] = plt.subplots(2, 1)
+    fig, (ax1, ax2) = plotdata
 
-    # グローバル設定
-    plt.title("Stage Preview")
-
-    # 軸の設定
-    ax.set_xlim(-500, stage.x_size + 500)
-    ax.set_ylim(-500, stage.y_size + 500)
-    ax.axis("off")
-    ax.set_aspect("equal", adjustable="box")
-    ax.grid(True, which="both", linestyle="--", color="lightgray", zorder=1000)
+    # ステージプレビューの設定
+    ax1.set_title("Stage Preview")
+    ax1.set_xlim(-stage.robot.radius, stage.x_size + stage.robot.radius)
+    ax1.set_ylim(-stage.robot.radius, stage.y_size + stage.robot.radius)
+    ax1.axis("off")
+    ax1.set_aspect("equal", adjustable="box")
 
     # ステージの枠
-    ax.add_patch(
+    ax1.add_patch(
         patches.Rectangle(
             (0, 0),
             stage.x_size,
             stage.y_size,
             fill=None,
             edgecolor="black",
-            zorder=10,
         )
     )
 
     # 壁の描画
     for wall in stage.walls:
         (x1, y1), (x2, y2) = wall
-        ax.plot(
+        ax1.plot(
             [x1, x2],
             [y1, y2],
             color="black",
@@ -56,7 +55,7 @@ def preview(stage: Stage) -> None:
     for goal in stage.goals:
         x, y = goal.position
         width, height = goal.size
-        ax.add_patch(
+        ax1.add_patch(
             patches.Rectangle(
                 (x, y),
                 width,
@@ -66,7 +65,7 @@ def preview(stage: Stage) -> None:
                 alpha=0.5,
             )
         )
-        ax.text(
+        ax1.text(
             x + width / 2,
             y + height / 2,
             str(goal.id),
@@ -78,18 +77,16 @@ def preview(stage: Stage) -> None:
     animated: list[Artist] = []
 
     # 変化物の描画関数
-    def update(*_) -> list[Artist]:
+    def update_artists(*_) -> list[Artist]:
         # 前フレームの描画を削除
         while animated:
             artist = animated.pop()
             artist.remove()
 
-        stage.robot.tick()
-
         # 経路の描画
         if stage.robot.path is not None:
             path = stage.robot.path
-            lines = ax.plot(
+            lines = ax1.plot(
                 path[:, 0],
                 path[:, 1],
                 color="red",
@@ -100,9 +97,8 @@ def preview(stage: Stage) -> None:
 
         # ロボットのプロパティ
         x, y = stage.robot.position
-        size = stage.robot.size
-        radius = size / 2
-        angle_rad = np.deg2rad(stage.robot.rotation)
+        radius = stage.robot.radius
+        rotation = stage.robot.rotation
 
         # ロボットの円
         circle = patches.Circle(
@@ -111,74 +107,69 @@ def preview(stage: Stage) -> None:
             fill=True,
             color="blue",
         )
-        animated.append(ax.add_patch(circle))
+        animated.append(ax1.add_patch(circle))
 
         # ロボットの向きを示す矢印
         arrow_length = radius * 1.2
-        arrow_dx = arrow_length * np.cos(angle_rad)
-        arrow_dy = arrow_length * np.sin(angle_rad)
+        arrow_dx = arrow_length * np.cos(rotation)
+        arrow_dy = arrow_length * np.sin(rotation)
         arrow = patches.FancyArrow(
             x,
             y,
             arrow_dx,
             arrow_dy,
-            width=size * 0.05,
+            width=10,
             length_includes_head=True,
             color="white",
-            head_width=size * 0.1,
-            head_length=size * 0.1,
         )
-        animated.append(ax.add_patch(arrow))
+        animated.append(ax1.add_patch(arrow))
 
         # ロボットの中心点
         center_dot = patches.Circle(
             (x, y),
-            size * 0.05,
+            radius * 0.1,
             color="red",
         )
-        animated.append(ax.add_patch(center_dot))
-
-        # ロボットの座標と角度表示
-        info_text = f"Pos: ({x}, {y})\nAngle: {stage.robot.rotation:.1f}°"
-        text_artist = ax.text(
-            stage.x_size + 100,
-            stage.y_size / 2,  # ステージの右側に表示
-            info_text,
-            fontsize=8,
-            ha="left",
-            va="center",
-        )
-        animated.append(text_artist)
+        animated.append(ax1.add_patch(center_dot))
 
         return animated
 
     # 初期描画
-    update()
+    update_artists()
+
+    def animate(frame: int) -> list[Artist]:
+        stage.robot.tick()
+        return update_artists()
 
     _ = FuncAnimation(
         fig,
-        update,
+        animate,
         frames=200,
         interval=100,
     )
 
-    def on_click(event) -> None:
-        if event.inaxes != ax:
-            return
-        if event.button == 1:  # 左クリックで目的地設定
-            dest_x = event.xdata
-            dest_y = event.ydata
-            if 0 <= dest_x <= stage.x_size and 0 <= dest_y <= stage.y_size:
-                path = find_path(stage, stage.robot.position, (dest_x, dest_y))
-                if path is not None:
-                    stage.robot.set_path(path)
-                update()
-                plt.draw()
-        elif event.button == 3:  # 右クリックで経路クリア
-            stage.robot.path = None
-            update()
-            plt.draw()
+    def on_click(event: Event) -> None:
+        if (
+            type(event) is MouseEvent
+            and event.inaxes == ax1
+            and event.xdata is not None
+            and event.ydata is not None
+        ):
+            x, y = event.xdata, event.ydata
+            stage.robot.destination = (x, y)
 
     fig.canvas.mpl_connect("button_press_event", on_click)
+
+    # グリッドマップの表示
+    ax2.set_title("Grid Map")
+    grid = stage.grid_map
+    ax2.imshow(
+        grid, cmap="gray_r", origin="lower", extent=(0, stage.x_size, 0, stage.y_size)
+    )
+    ax2.set_aspect("equal", adjustable="box")
+    ax2.set_xticks(np.arange(0, stage.x_size + 1, stage.cell_size * 2))
+    ax2.set_yticks(np.arange(0, stage.y_size + 1, stage.cell_size * 2))
+    ax2.axis("off")
+    ax2.grid(which="both", color="lightgray", linewidth=0.5)
 
     plt.show()

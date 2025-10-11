@@ -1,19 +1,28 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+from pathfinding import find_path
+
+if TYPE_CHECKING:
+    from stage import Stage
 
 
 @dataclass
 class Robot:
     """ロボットの情報を管理するクラス"""
 
-    size: int  # ロボットのサイズ (diameter in mm)
+    position: tuple[float, float]  # ロボットの位置 (x, y)
+    rotation: float  # ロボットの向き (rad)
+    radius: float  # ロボットの半径
+    destination: tuple[float, float] | None = None  # 目的地 (x, y)
+    stage: Stage = field(init=False, repr=False)  # ロボットがいるステージ情報
 
-    position: tuple[int, int]  # ロボットの位置 (x, y)
-    rotation: float  # ロボットの向き (degrees)
-
-    _r_speed = 0.0  # 右車輪の速度
-    _l_speed = 0.0  # 左車輪の速度
+    path: np.ndarray | None = field(default=None)  # 走行経路
+    _path_index: int = 0  # 現在の経路インデックス
 
     def pickup_box(self):
         """ロボットが箱を拾う動作をする関数"""
@@ -27,22 +36,25 @@ class Robot:
         """ARマーカーを読み取り、プロパティを更新する関数"""
         pass
 
-    path: np.ndarray | None = field(default=None, repr=False)  # 走行経路
-    _path_index: int = 0
-
-    def set_path(self, path: np.ndarray) -> None:
-        """経路を設定する関数"""
-        self.path = path
-        self._path_index = 0
-
     _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)
     _movement_speed: float = 100.0  # ロボットの移動速度 (mm per tick)
 
     def tick(self):
         """ロボットの状態を更新する関数"""
+        if not self.path and self.destination:
+            # 経路が未設定で目的地がある場合、経路探索を行う
+            path = find_path(self.stage, self.position, self.destination)
+            if path is not None:
+                self.path = path
+                self._path_index = 0
+            else:
+                # 経路が見つからない場合、目的地をクリア
+                self.destination = None
+                return
 
         if self.path is None or self._path_index >= len(self.path):
-            return  # 経路がない、または経路の終点に到達した場合は何もしない
+            # 経路がないか、経路の終端に到達している場合、何もしない
+            return
 
         # 次の目的地を取得
         target_pos = self.path[self._path_index]
@@ -58,19 +70,16 @@ class Robot:
         # 現在の向きと目的地の角度の差を計算
         angle_diff = (target_angle - self.rotation + 180) % 360 - 180
 
-        # 回転処理
-        if abs(angle_diff) > 5.0:  # 向きの誤差が5度以上なら回転
-            rotation_step = np.sign(angle_diff) * min(
-                self._rotation_speed, abs(angle_diff)
-            )
-            self.rotation = (self.rotation + rotation_step) % 360
-        else:
-            # 移動処理
-            movement_step = min(self._movement_speed, distance)
-            move_x = movement_step * np.cos(np.radians(self.rotation))
-            move_y = movement_step * np.sin(np.radians(self.rotation))
-            self.position = (curr_x + move_x, curr_y + move_y)
+        # 回転処理（回転量を計算）
+        rotation_step = np.sign(angle_diff) * min(self._rotation_speed, abs(angle_diff))
+        self.rotation = (self.rotation + rotation_step) % 360
 
-            # 次の目的地に近づいたらインデックスを進める
-            if distance < self._movement_speed:
-                self._path_index += 1
+        # 移動処理（回転と同時に移動）
+        movement_step = min(self._movement_speed, distance)
+        move_x = movement_step * np.cos(np.radians(self.rotation))
+        move_y = movement_step * np.sin(np.radians(self.rotation))
+        self.position = (curr_x + move_x, curr_y + move_y)
+
+        # 次の目的地に近づいたらインデックスを進める
+        if distance < self._movement_speed:
+            self._path_index += 1
