@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -91,33 +92,39 @@ class Stage:
             tuple[int, int] | None: 最も近い通行可能なセルの座標 (x, y)、または見つからない場合はNone
         """
         x, y = position
-        col = int(x / self.cell_size)
         row = int(y / self.cell_size)
+        col = int(x / self.cell_size)
 
         if self.grid_map[row, col] == 0:
-            return (col, row)  # 指定位置が通行可能ならそのまま返す
+            return (row, col)  # 指定位置が通行可能ならそのまま返す
 
-        # BFSで最も近い通行可能なセルを探索
-        from collections import deque
-
-        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         visited = set()
-        queue = deque([(col, row)])
-
+        queue = deque([(row, col)])
+        directions = [
+            (0, 1),
+            (1, 0),
+            (0, -1),
+            (-1, 0),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
+        ]
         while queue:
-            curr_col, curr_row = queue.popleft()
-            if (curr_col, curr_row) in visited:
+            curr_row, curr_col = queue.popleft()
+            if (curr_row, curr_col) in visited:
                 continue
-            visited.add((curr_col, curr_row))
+            visited.add((curr_row, curr_col))
 
-            if (
-                0 <= curr_col < self.grid_map.shape[1]
-                and 0 <= curr_row < self.grid_map.shape[0]
-                and self.grid_map[curr_row, curr_col] == 0
-            ):
-                return (curr_col, curr_row)  # 通行可能なセルを発見
+            if self.grid_map[curr_row, curr_col] == 0:
+                return (curr_row, curr_col)
 
-            for dc, dr in directions:
-                queue.append((curr_col + dc, curr_row + dr))
-
-        return None  # 通行可能なセルが見つからなかった場合
+            for dr, dc in directions:
+                nr, nc = curr_row + dr, curr_col + dc
+                if (
+                    0 <= nc < self.grid_map.shape[1]
+                    and 0 <= nr < self.grid_map.shape[0]
+                    and (nr, nc) not in visited
+                ):
+                    queue.append((nr, nc))
+        return None

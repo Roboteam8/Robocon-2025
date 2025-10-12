@@ -36,12 +36,12 @@ class Robot:
         """ARマーカーを読み取り、プロパティを更新する関数"""
         pass
 
-    _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)
+    _rotation_speed: float = np.radians(15.0)  # ロボットの回転速度 (rad per tick)
     _movement_speed: float = 100.0  # ロボットの移動速度 (mm per tick)
 
     def tick(self):
         """ロボットの状態を更新する関数"""
-        if not self.path and self.destination:
+        if self.path is None and self.destination:
             # 経路が未設定で目的地がある場合、経路探索を行う
             path = find_path(self.stage, self.position, self.destination)
             if path is not None:
@@ -64,22 +64,27 @@ class Robot:
         # 目的地までの距離と角度を計算
         delta_x = dest_x - curr_x
         delta_y = dest_y - curr_y
-        distance = (delta_x**2 + delta_y**2) ** 0.5
-        target_angle = np.degrees(np.arctan2(delta_y, delta_x)) % 360
+        distance = np.hypot(delta_x, delta_y)
+        target_angle = np.arctan2(delta_y, delta_x)
+        angle_diff = (target_angle - self.rotation + np.pi) % (2 * np.pi) - np.pi
 
-        # 現在の向きと目的地の角度の差を計算
-        angle_diff = (target_angle - self.rotation + 180) % 360 - 180
+        # 回転処理
+        if abs(angle_diff) > self._rotation_speed:
+            self.rotation += np.sign(angle_diff) * self._rotation_speed
+            self.rotation %= 2 * np.pi
+            return
 
-        # 回転処理（回転量を計算）
-        rotation_step = np.sign(angle_diff) * min(self._rotation_speed, abs(angle_diff))
-        self.rotation = (self.rotation + rotation_step) % 360
+        # 前進処理
+        move_dist = min(self._movement_speed, distance)
+        if move_dist > 0:
+            self.position = (
+                curr_x + move_dist * np.cos(self.rotation),
+                curr_y + move_dist * np.sin(self.rotation),
+            )
 
-        # 移動処理（回転と同時に移動）
-        movement_step = min(self._movement_speed, distance)
-        move_x = movement_step * np.cos(np.radians(self.rotation))
-        move_y = movement_step * np.sin(np.radians(self.rotation))
-        self.position = (curr_x + move_x, curr_y + move_y)
-
-        # 次の目的地に近づいたらインデックスを進める
-        if distance < self._movement_speed:
+        # 次の経路に移る処理
+        if distance <= self._movement_speed:
             self._path_index += 1
+            if self._path_index >= len(self.path):
+                self.path = None
+                self.destination = None

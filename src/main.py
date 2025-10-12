@@ -18,6 +18,8 @@ def main():
         robot=Robot(position=(4700, 300), rotation=np.radians(180), radius=500 / 2),
     )
 
+    stage.robot.destination = (100, 2500)
+
     preview(stage)
 
 

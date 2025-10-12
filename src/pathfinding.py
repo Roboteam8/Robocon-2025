@@ -25,48 +25,53 @@ def find_path(
     Returns:
         npt.NDArray[np.float64] | None: 補間された経路の座標配列
     """
-    cell_start = stage.nearest_reachable_cell(start)
-    cell_end = stage.nearest_reachable_cell(end)
-    if cell_start is None or cell_end is None:
+    start_cell = stage.nearest_reachable_cell(start)
+    end_cell = stage.nearest_reachable_cell(end)
+    if start_cell is None or end_cell is None:
         return None
 
-    open_set = [(0, cell_start)]
+    grid = stage.grid_map
+    cell_size = stage.cell_size
+    rows, cols = grid.shape
+    open_set: list[tuple[int, tuple[int, int]]] = [(0, start_cell)]
     came_from: dict[tuple[int, int], tuple[int, int]] = {}
-    g_score = {cell_start: 0}
-    f_score = {cell_start: heuristic(cell_start, cell_end)}
-
+    g_score = {start_cell: 0}
+    f_score = {start_cell: heuristic(start_cell, end_cell)}
+    closed_set = set()
     while open_set:
-        _, current = heapq.heappop(open_set)
+        current = heapq.heappop(open_set)[1]
+        if current == end_cell:
+            return finalize_path(came_from, current, cell_size, start, end)
 
-        if current == cell_end:
-            return finalize_path(came_from, current, stage.cell_size, start, end)
-
-        for dy, dx in [
-            (0, 1),
-            (0, -1),
-            (1, 0),
+        closed_set.add(current)
+        for direction in [
             (-1, 0),
-            (1, 1),
-            (1, -1),
-            (-1, 1),
+            (1, 0),
+            (0, -1),
+            (0, 1),
             (-1, -1),
+            (-1, 1),
+            (1, -1),
+            (1, 1),
         ]:
-            neighbor = (current[0] + dy, current[1] + dx)
-
-            if not (
-                0 <= neighbor[0] < stage.grid_map.shape[0]
-                and 0 <= neighbor[1] < stage.grid_map.shape[1]
+            neighbor = (current[0] + direction[0], current[1] + direction[1])
+            if (
+                0 <= neighbor[0] < rows
+                and 0 <= neighbor[1] < cols
+                and grid[neighbor[0], neighbor[1]] == 0
             ):
-                continue
-            if stage.grid_map[neighbor[0], neighbor[1]] == 1:
-                continue
+                if neighbor in closed_set:
+                    continue
 
-            tentative_g_score = g_score[current] + (dx**2 + dy**2) ** 0.5
-            if tentative_g_score < g_score.get(neighbor, float("inf")):
-                came_from[neighbor] = current
-                g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = tentative_g_score + heuristic(neighbor, cell_end)
-                heapq.heappush(open_set, (f_score[neighbor], neighbor))
+                tentative_g_score = g_score[current] + 1
+                if tentative_g_score < g_score.get(neighbor, float("inf")):
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = tentative_g_score + heuristic(
+                        neighbor, end_cell
+                    )
+                    if neighbor not in [i[1] for i in open_set]:
+                        heapq.heappush(open_set, (f_score[neighbor], neighbor))
     return None
 
 
@@ -90,32 +95,42 @@ def finalize_path(
     end: tuple[float, float],
 ) -> npt.NDArray[np.float64]:
     """
-    探索した経路を再構築し、滑らかに補完する関数
+    探索した経路を再構築し、B-Splineで滑らかに補完する関数
     Args:
         came_from (dict[tuple[int, int], tuple[int, int]]): 各点の親点の辞書
         current (tuple[int, int]): ゴール地点の座標 (y, x)
         cell_size (int): セルサイズ
+        start (tuple[float, float]): スタート地点の実座標 (x, y)
+        end (tuple[float, float]): ゴール地点の実座標 (x, y)
     Returns:
         npt.NDArray[np.float64]: 再構築された経路の座標配列
     """
-    path: list[tuple[float, float]] = [end]
+    path = [current]
     while current in came_from:
-        path.append(
-            (
-                current[1] * cell_size + cell_size / 2,
-                current[0] * cell_size + cell_size / 2,
-            )
-        )
         current = came_from[current]
-    path.append(
-        (current[1] * cell_size + cell_size / 2, current[0] * cell_size + cell_size / 2)
-    )
-    path.append(start)
+        path.append(current)
     path.reverse()
-    if len(path) < 4:
-        return np.array(path, dtype=np.float64)
 
-    tck, _ = splprep([np.array(path)[:, 0], np.array(path)[:, 1]], s=1000)
-    # TODO
-    path = splev(np.linspace(0, 1, 100), tck)  # type: ignore
-    return np.array(path).T
+    # セル座標を実座標に変換
+    path_coords = np.array(
+        [
+            (x * cell_size + cell_size / 2, y * cell_size + cell_size / 2)
+            for y, x in path
+        ]
+    )
+
+    # スタートとエンドを正確に設定
+    path_coords[0] = np.array(start)
+    path_coords[-1] = np.array(end)
+
+    # B-Splineで滑らかに補完
+    if len(path_coords) < 3:
+        return path_coords  # 点が少ない場合は補完しない
+
+    tck, u = splprep(path_coords.T, s=0)
+    unew = np.linspace(0, 1.0, num=max(100, len(path_coords) * 3))
+    # TODO: mypyのバグ？
+    out = splev(unew, tck)  # type: ignore
+    smoothed_path = np.vstack(out).T
+
+    return smoothed_path
