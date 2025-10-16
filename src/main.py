@@ -1,5 +1,6 @@
 import numpy as np
 
+from pathfinding import find_path
 from preview import preview
 from robot import Robot
 from stage import Goal, Stage
@@ -18,7 +19,10 @@ def main():
         robot=Robot(position=(4700, 300), rotation=np.radians(180), radius=500 / 2),
     )
 
-    stage.robot.destination = (100, 2500)
+    destination = (400, 1950)
+    path = find_path(stage.grid_map, stage.robot.position, destination)
+    if path is not None:
+        stage.robot.path = path
 
     preview(stage)
 

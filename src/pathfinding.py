@@ -1,38 +1,33 @@
-from __future__ import annotations
-
 import heapq
-from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import splev, splprep
 
-if TYPE_CHECKING:
-    from stage import Stage
+from stage import GridMap
 
 
 def find_path(
-    stage: Stage,
+    grid_map: GridMap,
     start: tuple[float, float],
     end: tuple[float, float],
 ) -> npt.NDArray[np.float64] | None:
     """
     A*アルゴリズムで経路を探索し、滑らかに補完した経路を返す関数
     Args:
-        stage (Stage): ステージオブジェクト
+        grid_map (GridMap): グリッドマップオブジェクト
         start (tuple[float, float]): スタート地点 (x, y)
         end (tuple[float, float]): ゴール地点 (x, y)
     Returns:
         npt.NDArray[np.float64] | None: 補間された経路の座標配列
     """
-    start_cell = stage.nearest_reachable_cell(start)
-    end_cell = stage.nearest_reachable_cell(end)
+    start_cell = grid_map.nearest_reachable_cell(start)
+    end_cell = grid_map.nearest_reachable_cell(end)
     if start_cell is None or end_cell is None:
         return None
 
-    grid = stage.grid_map
-    cell_size = stage.cell_size
-    rows, cols = grid.shape
+    cell_size = grid_map.cell_size
+    rows, cols = grid_map.shape
     open_set: list[tuple[int, tuple[int, int]]] = [(0, start_cell)]
     came_from: dict[tuple[int, int], tuple[int, int]] = {}
     g_score = {start_cell: 0}
@@ -58,7 +53,7 @@ def find_path(
             if (
                 0 <= neighbor[0] < rows
                 and 0 <= neighbor[1] < cols
-                and grid[neighbor[0], neighbor[1]] == 0
+                and grid_map[neighbor[0], neighbor[1]] == 0
             ):
                 if neighbor in closed_set:
                     continue

@@ -1,14 +1,7 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 import numpy as np
-
-from pathfinding import find_path
-
-if TYPE_CHECKING:
-    from stage import Stage
+import numpy.typing as npt
 
 
 @dataclass
@@ -18,11 +11,20 @@ class Robot:
     position: tuple[float, float]  # ロボットの位置 (x, y)
     rotation: float  # ロボットの向き (rad)
     radius: float  # ロボットの半径
-    destination: tuple[float, float] | None = None  # 目的地 (x, y)
-    stage: Stage = field(init=False, repr=False)  # ロボットがいるステージ情報
 
-    path: np.ndarray | None = field(default=None)  # 走行経路
+    _path: npt.NDArray[np.float64] | None = field(default=None)  # 走行経路
     _path_index: int = 0  # 現在の経路インデックス
+
+    @property
+    def path(self) -> npt.NDArray[np.float64] | None:
+        """ロボットの現在の走行経路を取得するプロパティ"""
+        return self._path
+
+    @path.setter
+    def path(self, path: npt.NDArray[np.float64]) -> None:
+        """ロボットの走行経路を設定するプロパティセッター"""
+        self._path = path
+        self._path_index = 0
 
     def pickup_box(self):
         """ロボットが箱を拾う動作をする関数"""
@@ -41,23 +43,12 @@ class Robot:
 
     def tick(self):
         """ロボットの状態を更新する関数"""
-        if self.path is None and self.destination:
-            # 経路が未設定で目的地がある場合、経路探索を行う
-            path = find_path(self.stage, self.position, self.destination)
-            if path is not None:
-                self.path = path
-                self._path_index = 0
-            else:
-                # 経路が見つからない場合、目的地をクリア
-                self.destination = None
-                return
-
-        if self.path is None or self._path_index >= len(self.path):
+        if self._path is None or self._path_index >= len(self._path):
             # 経路がないか、経路の終端に到達している場合、何もしない
             return
 
         # 次の目的地を取得
-        target_pos = self.path[self._path_index]
+        target_pos = self._path[self._path_index]
         dest_x, dest_y = target_pos
         curr_x, curr_y = self.position
 
@@ -85,6 +76,3 @@ class Robot:
         # 次の経路に移る処理
         if distance <= self._movement_speed:
             self._path_index += 1
-            if self._path_index >= len(self.path):
-                self.path = None
-                self.destination = None

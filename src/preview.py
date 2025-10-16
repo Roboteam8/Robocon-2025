@@ -5,6 +5,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import Event, MouseEvent
 
+from pathfinding import find_path
 from stage import Stage
 
 
@@ -153,14 +154,10 @@ def preview(stage: Stage) -> None:
             and event.ydata is not None
         ):
             x, y = event.xdata, event.ydata
-            stage.robot.destination = (x, y)
+            path = find_path(stage.grid_map, stage.robot.position, (x, y))
+            if path is not None:
+                stage.robot.path = path
 
     fig.canvas.mpl_connect("button_press_event", on_click)
-
-    # fig_grid, ax_grid = plt.subplots()
-    # ax_grid.set_title("Grid Map")
-    # ax_grid.axis("off")
-    # ax_grid.set_aspect("equal", adjustable="box")
-    # ax_grid.imshow(stage.grid_map, cmap="gray_r", origin="upper")
 
     plt.show()
