@@ -24,7 +24,7 @@ def main():
     if path is not None:
         stage.robot.path = path
 
-    preview(stage)
+    preview(stage, show_grid_map=True)
 
 
 if __name__ == "__main__":

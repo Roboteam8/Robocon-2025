@@ -9,12 +9,13 @@ from pathfinding import find_path
 from stage import Stage
 
 
-def preview(stage: Stage) -> None:
+def preview(stage: Stage, show_grid_map: bool = False) -> None:
     """
     ステージのプレビューを表示する関数
 
     Args:
         stage (Stage): ステージの情報
+        show_grid_map (bool): グリッドマップを表示するかどうかのフラグ (デフォルト: False)
     Returns:
         None
     """
@@ -159,5 +160,14 @@ def preview(stage: Stage) -> None:
                 stage.robot.path = path
 
     fig.canvas.mpl_connect("button_press_event", on_click)
+
+    if show_grid_map:
+        ax.imshow(
+            stage.grid_map,
+            extent=(0, stage.x_size, 0, stage.y_size),
+            origin="lower",
+            cmap="gray_r",
+            alpha=0.3,
+        )
 
     plt.show()
