@@ -42,11 +42,25 @@ class Visualizable(metaclass=_InstanceTracker):
         """
         return []
 
+    def update(self, dt: float) -> None:
+        """
+        オブジェクトの状態を更新する抽象メソッド
+
+        Args:
+            dt (float): 経過時間 (秒)
+        """
+
 
 VISUALIZABLES: list[Visualizable] = []
 
 
-def visualize() -> None:
+def visualize(frame_rate: int) -> None:
+    """
+    Matplotlibを使用してオブジェクトを可視化する関数
+
+    Args:
+        frame_rate (int): フレームレート (FPS)
+    """
     fig, ax = plt.subplots()
 
     for visualizable in VISUALIZABLES:
@@ -56,11 +70,12 @@ def visualize() -> None:
     def update(_: int) -> list[Artist]:
         artists = []
         for visualizable in VISUALIZABLES:
+            visualizable.update(1 / frame_rate)
             artists.extend(visualizable.animate(ax))
         return artists
 
     _ = FuncAnimation(
-        fig, update, frames=range(100), blit=True, interval=1000 / 30
-    )  # 30 FPS
+        fig, update, frames=range(100), blit=True, interval=1000 / frame_rate
+    )
 
     plt.show()

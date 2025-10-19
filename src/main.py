@@ -1,5 +1,6 @@
 import numpy as np
 
+from pathfinding import GridMap, PathCalculator
 from robot import Robot
 from stage import Goal, Stage, StartArea, Wall
 from visualize import visualize
@@ -23,9 +24,15 @@ def main():
         robot=Robot(position=(3750, 500), rotation=np.radians(180), radius=500 / 2),
     )
 
-    stage.robot.destination = (500, 3500)
+    path = PathCalculator(
+        GridMap(stage, cell_size=100, expansion_radius=int(stage.robot.radius)),
+        stage.robot.position,
+        (500, 1750),
+    )
+    path.calculate_path()
+    stage.robot.set_path(path)
 
-    visualize()
+    visualize(30)
 
 
 if __name__ == "__main__":
