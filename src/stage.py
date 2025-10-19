@@ -1,24 +1,45 @@
-from collections import deque
 from dataclasses import dataclass, field
 
-import numpy as np
-import numpy.typing as npt
-from scipy.ndimage import binary_dilation
+from matplotlib.axes import Axes
+from matplotlib.backend_bases import Event, MouseEvent
+from matplotlib.patches import Rectangle
 
+from a_star import AStarPlanner
 from robot import Robot
+from visualize import Visualizable
 
 
 @dataclass
-class Goal:
+class Goal(Visualizable):
     """ゴールの情報を管理するクラス"""
 
     position: tuple[int, int]  # ゴールの位置(左下基準) (x, y)
     size: tuple[int, int]  # ゴールのサイズ (x幅, y幅)
     id: int  # ゴールのID
 
+    def visualize(self, ax: Axes):
+        x, y = self.position
+        width, height = self.size
+        rect = Rectangle(
+            (x, y),
+            width,
+            height,
+            fill=True,
+            color="green",
+            alpha=0.5,
+        )
+        ax.add_patch(rect)
+        ax.text(
+            x + width / 2,
+            y + height / 2,
+            f"Goal {self.id}",
+            ha="center",
+            va="center",
+        )
+
 
 @dataclass
-class Stage:
+class Stage(Visualizable):
     """ステージの情報を管理するクラス"""
 
     x_size: int  # ステージのx方向サイズ (mm)
@@ -28,107 +49,69 @@ class Stage:
     ]  # 壁のリスト [((x1, y1), (x2, y2)), ...]
     goals: list[Goal]  # ゴールのリスト
     robot: Robot  # ステージ上のロボット
-    grid_map: "GridMap" = field(init=False)  # グリッドマップ (0: 通行可能, 1: 障害物)
+
+    path_planner: AStarPlanner = field(init=False)  # 経路計画オブジェクト
 
     def __post_init__(self):
-        self.grid_map = GridMap(self, cell_size=100)
+        cell_size = 50  # グリッドセルのサイズ (mm)
+        grid_width = self.x_size // cell_size
+        grid_height = self.y_size // cell_size
+        self.path_planner = AStarPlanner(
+            grid_size=(grid_height, grid_width),
+            resolution=cell_size,
+            robot_radius=self.robot.radius,
+        )
 
-
-class GridMap(npt.NDArray[np.uint8]):
-    """グリッドマップを表すクラス
-
-    0: 通行可能
-    1: 障害物
-    """
-
-    cell_size: int  # セルサイズ (mm)
-
-    def __new__(cls, stage: "Stage", cell_size: int = 100) -> "GridMap":
-        rows = (stage.y_size + cell_size - 1) // cell_size
-        cols = (stage.x_size + cell_size - 1) // cell_size
-        instance = super().__new__(cls, (rows, cols), dtype=np.uint8)
-        instance.cell_size = cell_size
-        instance[:] = np.zeros((rows, cols), dtype=np.uint8)
-
-        for wall in stage.walls:
+        # 壁を障害物として追加
+        obstacle_rects = []
+        for wall in self.walls:
             (x1, y1), (x2, y2) = wall
-            r1, c1 = int(y1 / cell_size), int(x1 / cell_size)
-            r2, c2 = int(y2 / cell_size), int(x2 / cell_size)
-            rr = np.linspace(r1, r2, max(abs(r2 - r1), abs(c2 - c1)) + 1, dtype=int)
-            cc = np.linspace(c1, c2, max(abs(r2 - r1), abs(c2 - c1)) + 1, dtype=int)
-            for r, c in zip(rr, cc):
-                if 0 <= r < rows and 0 <= c < cols:
-                    instance[r, c] = 1
+            ox = min(x1, x2)
+            oy = min(y1, y2)
+            ow = abs(x2 - x1) if x1 != x2 else 10  # 壁の厚みを10mmに設定
+            oh = abs(y2 - y1) if y1 != y2 else 10
+            obstacle_rects.append((ox, oy, ow, oh))
+        self.path_planner.add_obstacle(obstacle_rects)
 
-        instance[0, :] = 1
-        instance[-1, :] = 1
-        instance[:, 0] = 1
-        instance[:, -1] = 1
+    def visualize(self, ax: Axes):
+        ax.set_title("Stage Visualization")
+        ax.set_xlim(-self.robot.radius, self.x_size + self.robot.radius)
+        ax.set_ylim(-self.robot.radius, self.y_size + self.robot.radius)
+        ax.axis("off")
+        ax.set_aspect("equal", adjustable="box")
 
-        instance._expand_obstacles(stage.robot.radius)
-        return instance
+        # ステージの枠
+        ax.add_patch(
+            Rectangle(
+                (0, 0),
+                self.x_size,
+                self.y_size,
+                fill=None,
+                edgecolor="black",
+            )
+        )
 
-    def _expand_obstacles(self, radius: float) -> None:
-        """障害物を指定された半径分膨張させる関数
+        # 壁の描画
+        for wall in self.walls:
+            (x1, y1), (x2, y2) = wall
+            ax.plot(
+                [x1, x2],
+                [y1, y2],
+                color="black",
+                linewidth=5,
+                solid_capstyle="butt",
+            )
 
-        Args:
-            radius (float): 膨張させる半径 (mm)
-        """
+        def on_click(event: Event):
+            if (
+                type(event) is MouseEvent
+                and event.inaxes == ax
+                and event.xdata is not None
+                and event.ydata is not None
+            ):
+                x, y = event.xdata, event.ydata
+                self.robot.set_path((x, y), self.path_planner)
 
-        struct_size = int(np.ceil(radius / self.cell_size))
-        struct = np.zeros((2 * struct_size + 1, 2 * struct_size + 1), dtype=bool)
-        for y in range(-struct_size, struct_size + 1):
-            for x in range(-struct_size, struct_size + 1):
-                if x**2 + y**2 <= struct_size**2:
-                    struct[y + struct_size, x + struct_size] = True
+        ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
-        expanded = binary_dilation(self == 1, structure=struct).astype(np.uint8)
-        self[:] = expanded
-
-    def nearest_reachable_cell(
-        self, position: tuple[float, float]
-    ) -> tuple[int, int] | None:
-        """指定された位置から最も近い通行可能なセルを見つける関数
-
-        Args:
-            position (tuple[float, float]): 位置 (x, y)
-        Returns:
-            tuple[int, int] | None: 最も近い通行可能なセルの座標 (x, y)、または見つからない場合はNone
-        """
-        x, y = position
-        row = int(y / self.cell_size)
-        col = int(x / self.cell_size)
-
-        if self[row, col] == 0:
-            return (row, col)  # 指定位置が通行可能ならそのまま返す
-
-        visited = set()
-        queue = deque([(row, col)])
-        directions = [
-            (0, 1),
-            (1, 0),
-            (0, -1),
-            (-1, 0),
-            (1, 1),
-            (1, -1),
-            (-1, 1),
-            (-1, -1),
-        ]
-        while queue:
-            curr_row, curr_col = queue.popleft()
-            if (curr_row, curr_col) in visited:
-                continue
-            visited.add((curr_row, curr_col))
-
-            if self[curr_row, curr_col] == 0:
-                return (curr_row, curr_col)
-
-            for dr, dc in directions:
-                nr, nc = curr_row + dr, curr_col + dc
-                if (
-                    0 <= nc < self.shape[1]
-                    and 0 <= nr < self.shape[0]
-                    and (nr, nc) not in visited
-                ):
-                    queue.append((nr, nc))
         return None

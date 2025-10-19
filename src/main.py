@@ -1,9 +1,8 @@
 import numpy as np
 
-from pathfinding import find_path
-from preview import preview
 from robot import Robot
 from stage import Goal, Stage
+from visualize import visualize
 
 
 def main():
@@ -20,11 +19,9 @@ def main():
     )
 
     destination = (400, 1950)
-    path = find_path(stage.grid_map, stage.robot.position, destination)
-    if path is not None:
-        stage.robot.path = path
+    stage.robot.set_path(destination, stage.path_planner)
 
-    preview(stage, show_grid_map=True)
+    visualize()
 
 
 if __name__ == "__main__":
