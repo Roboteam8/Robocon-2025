@@ -1,77 +1,176 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
+import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.backend_bases import Event, MouseEvent
 from matplotlib.patches import Rectangle
+from matplotlib.transforms import Affine2D
 
-from a_star import AStarPlanner
 from robot import Robot
 from visualize import Visualizable
 
 
 @dataclass
-class Goal(Visualizable):
-    """ゴールの情報を管理するクラス"""
+class Wall(Visualizable):
+    """
+    壁の情報を管理するクラス
+    Attributes:
+        start (tuple[int, int]): 壁の始点座標 (x, y)
+        end (tuple[int, int]): 壁の終点座標 (x, y)
+    """
 
-    position: tuple[int, int]  # ゴールの位置(左下基準) (x, y)
-    size: tuple[int, int]  # ゴールのサイズ (x幅, y幅)
-    id: int  # ゴールのID
+    start: tuple[int, int]
+    end: tuple[int, int]
 
     def visualize(self, ax: Axes):
-        x, y = self.position
-        width, height = self.size
-        rect = Rectangle(
-            (x, y),
-            width,
-            height,
-            fill=True,
-            color="green",
-            alpha=0.5,
+        ax.plot(
+            [self.start[0], self.end[0]],
+            [self.start[1], self.end[1]],
+            color="brown",
+            linewidth=5,
+            solid_capstyle="butt",
         )
-        ax.add_patch(rect)
+
+
+@dataclass
+class Goal(Visualizable):
+    """
+    ゴールの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): ゴールの左下座標 (x, y)
+        size (int): ゴールの一辺の長さ (mm)
+        goal_id (int): ゴールの識別子
+    """
+
+    position: tuple[int, int]
+    size: int
+    goal_id: int
+
+    def visualize(self, ax: Axes):
+        ax.add_patch(
+            Rectangle(
+                self.position,
+                self.size,
+                self.size,
+                facecolor="lightgreen",
+                edgecolor="green",
+            )
+        )
         ax.text(
-            x + width / 2,
-            y + height / 2,
-            f"Goal {self.id}",
+            self.position[0] + self.size / 2,
+            self.position[1] + self.size / 2,
+            f"Goal {self.goal_id}",
+            color="black",
+            fontsize=12,
             ha="center",
             va="center",
         )
 
 
 @dataclass
-class Stage(Visualizable):
-    """ステージの情報を管理するクラス"""
+class ARMarker(Visualizable):
+    """
+    ARマーカーの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): ARマーカーの座標 (x, y)
+        normal (tuple[int, int]): ARマーカーの法線ベクトル (nx, ny)
+        marker_id (int): ARマーカーの識別子
+    """
 
-    x_size: int  # ステージのx方向サイズ (mm)
-    y_size: int  # ステージのy方向サイズ (mm)
-    walls: list[
-        tuple[tuple[int, int], tuple[int, int]]
-    ]  # 壁のリスト [((x1, y1), (x2, y2)), ...]
-    goals: list[Goal]  # ゴールのリスト
-    robot: Robot  # ステージ上のロボット
+    position: tuple[int, int]
+    normal: tuple[int, int]
+    marker_id: int
 
-    path_planner: AStarPlanner = field(init=False)  # 経路計画オブジェクト
-
-    def __post_init__(self):
-        cell_size = 50  # グリッドセルのサイズ (mm)
-        grid_width = self.x_size // cell_size
-        grid_height = self.y_size // cell_size
-        self.path_planner = AStarPlanner(
-            grid_size=(grid_height, grid_width),
-            resolution=cell_size,
-            robot_radius=self.robot.radius,
+    def visualize(self, ax: Axes):
+        marker_size = 800
+        ax.add_patch(
+            Rectangle(
+                (
+                    self.position[0] - marker_size / 2,
+                    self.position[1] - marker_size / 2,
+                ),
+                10,
+                marker_size,
+                facecolor="blanchedalmond",
+                edgecolor="black",
+                transform=Affine2D().rotate_deg_around(
+                    self.position[0],
+                    self.position[1],
+                    np.degrees(np.arctan2(self.normal[1], self.normal[0])),
+                ),
+            )
+        )
+        ax.text(
+            self.position[0],
+            self.position[1],
+            f"AR Marker {self.marker_id}",
+            color="black",
+            fontsize=12,
+            ha="center",
+            va="center",
+            transform=Affine2D().rotate_deg_around(
+                self.position[0],
+                self.position[1],
+                np.degrees(np.arctan2(self.normal[1], self.normal[0])),
+            ),
         )
 
-        # 壁を障害物として追加
-        obstacle_rects = []
-        for wall in self.walls:
-            (x1, y1), (x2, y2) = wall
-            ox = min(x1, x2)
-            oy = min(y1, y2)
-            ow = abs(x2 - x1) if x1 != x2 else 10  # 壁の厚みを10mmに設定
-            oh = abs(y2 - y1) if y1 != y2 else 10
-            obstacle_rects.append((ox, oy, ow, oh))
-        self.path_planner.add_obstacle(obstacle_rects)
+
+@dataclass
+class StartArea(Visualizable):
+    """
+    スタートエリアの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): スタートエリアの左下座標 (x, y)
+        size (int): スタートエリアの一辺の長さ (mm)
+    """
+
+    position: tuple[int, int]
+    size: int
+
+    def visualize(self, ax: Axes):
+        ax.add_patch(
+            Rectangle(
+                self.position,
+                self.size,
+                self.size,
+                facecolor="lightyellow",
+                edgecolor="yellow",
+            )
+        )
+        center = self.position[0] + self.size / 2, self.position[1] + self.size / 2
+        parcel_size = 175, 225
+        ax.add_patch(
+            Rectangle(
+                (center[0] - parcel_size[0] / 2, center[1] - parcel_size[1] / 2),
+                parcel_size[0],
+                parcel_size[1],
+                fill=False,
+                edgecolor="black",
+            )
+        )
+
+
+@dataclass
+class Stage(Visualizable):
+    """
+    ステージの情報を管理するクラス
+    Attributes:
+        x_size (int): ステージのx方向サイズ (mm)
+        y_size (int): ステージのy方向サイズ (mm)
+        start_area (StartArea): スタートエリアの情報
+        walls (list[Wall]): 壁のリスト
+        goals (list[Goal]): ゴールのリスト
+        ar_markers (list[ARMarker]): ARマーカーのリスト
+        robot (Robot): ステージ上のロボット
+    """
+
+    x_size: int
+    y_size: int
+    start_area: StartArea
+    walls: list[Wall]
+    goals: list[Goal]
+    ar_markers: list[ARMarker]
+    robot: Robot
 
     def visualize(self, ax: Axes):
         ax.set_title("Stage Visualization")
@@ -90,28 +189,5 @@ class Stage(Visualizable):
                 edgecolor="black",
             )
         )
-
-        # 壁の描画
-        for wall in self.walls:
-            (x1, y1), (x2, y2) = wall
-            ax.plot(
-                [x1, x2],
-                [y1, y2],
-                color="black",
-                linewidth=5,
-                solid_capstyle="butt",
-            )
-
-        def on_click(event: Event):
-            if (
-                type(event) is MouseEvent
-                and event.inaxes == ax
-                and event.xdata is not None
-                and event.ydata is not None
-            ):
-                x, y = event.xdata, event.ydata
-                self.robot.set_path((x, y), self.path_planner)
-
-        ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
         return None
