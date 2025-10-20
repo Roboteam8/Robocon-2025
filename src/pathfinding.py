@@ -26,15 +26,24 @@ class GridMap(Visualizable, npt.NDArray[np.uint8]):
         cls,
         stage: Stage,
         cell_size: int,
-        expansion_radius: int = 0,
+        expansion_radius: float = 0,
     ) -> Self:
+        """
+        グリッドマップオブジェクトを生成するコンストラクタ
+        Args:
+            stage (Stage): ステージオブジェクト
+            cell_size (int): グリッドの1マスのサイズ（mm）
+            expansion_radius (float): 障害物拡張半径（mm）
+        Returns:
+            GridMap: グリッドマップオブジェクト
+        """
         x_cells = stage.x_size // cell_size
         y_cells = stage.y_size // cell_size
         instance = np.zeros((y_cells, x_cells), dtype=np.uint8).view(cls)
 
         instance.cell_size = cell_size
         instance._set_obstacles(stage)
-        instance._expand_obstacles(expansion_radius)
+        instance._expand_obstacles(int(expansion_radius // cell_size))
 
         return instance
 
@@ -68,8 +77,8 @@ class GridMap(Visualizable, npt.NDArray[np.uint8]):
                 cell_y = y // self.cell_size
                 self[cell_y, cell_x] = 1
 
-    def _expand_obstacles(self, radius: int) -> None:
-        if radius <= 0:
+    def _expand_obstacles(self, cell_radius: int) -> None:
+        if cell_radius <= 0:
             return
 
         # 障害物の拡張
@@ -77,17 +86,19 @@ class GridMap(Visualizable, npt.NDArray[np.uint8]):
         for y in range(self.shape[0]):
             for x in range(self.shape[1]):
                 if pre_expanded[y, x] == 1:
-                    for dy in range(-radius, radius + 1):
-                        for dx in range(-radius, radius + 1):
-                            if abs(dy) + abs(dx) <= radius:
-                                ny, nx = y + dy, x + dx
-                                if 0 <= ny < self.shape[0] and 0 <= nx < self.shape[1]:
-                                    self[ny, nx] = 1
+                    for dy in range(-cell_radius, cell_radius + 1):
+                        for dx in range(-cell_radius, cell_radius + 1):
+                            if (
+                                0 <= x + dx < self.shape[1]
+                                and 0 <= y + dy < self.shape[0]
+                                and dx * dx + dy * dy <= cell_radius * cell_radius
+                            ):
+                                self[y + dy, x + dx] = 1
 
     def visualize(self, ax: Axes) -> None:
         ax.imshow(
             self,
-            cmap=ListedColormap([(0, 0, 0, 0), "black"]),
+            cmap=ListedColormap([(0, 0, 0, 0), (0, 0, 0, 1)]),
             origin="lower",
             extent=(
                 0,

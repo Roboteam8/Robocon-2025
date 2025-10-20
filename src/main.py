@@ -25,7 +25,7 @@ def main():
     )
 
     path = PathCalculator(
-        GridMap(stage, cell_size=100, expansion_radius=int(stage.robot.radius)),
+        GridMap(stage, cell_size=50, expansion_radius=stage.robot.radius),
         stage.robot.position,
         (500, 1750),
     )
