@@ -25,14 +25,17 @@ def motor_control():
 
 
 # --- 非常停止時の割り込み処理 ---
-def emergency_stop(channel):
-    global running
-    running = False
-    # 出力を全て停止
+def cleanup_and_exit():
     GPIO.output(MOTOR_L_PIN, GPIO.LOW)
     GPIO.output(MOTOR_R_PIN, GPIO.LOW)
     GPIO.cleanup()
     sys.exit(0)
+
+
+def emergency_stop(channel):
+    global running
+    running = False
+    cleanup_and_exit()
 
 
 # --- GPIO設定 ---
@@ -57,5 +60,10 @@ try:
 
 except KeyboardInterrupt:
     running = False
+    cleanup_and_exit()
     GPIO.cleanup()
-    sys.exit(0)
+finally:
+    # Ensure cleanup and exit if emergency_stop was triggered
+    if not running:
+        cleanup_and_exit()
+        sys.exit(0)
