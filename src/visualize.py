@@ -65,14 +65,13 @@ def visualize(frame_rate: int) -> None:
 
     for visualizable in VISUALIZABLES:
         visualizable.visualize(ax)
-        visualizable.animate(ax)  # 初期描画
 
     def update(_: int) -> list[Artist]:
-        artists = []
+        animated = []
         for visualizable in VISUALIZABLES:
             visualizable.update(1 / frame_rate)
-            artists.extend(visualizable.animate(ax))
-        return artists
+            animated.extend(visualizable.animate(ax))
+        return animated
 
     _ = FuncAnimation(
         fig, update, frames=range(100), blit=True, interval=1000 / frame_rate

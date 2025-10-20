@@ -16,14 +16,13 @@ class Robot(Visualizable):
         position (tuple[float, float]): ロボットの位置 (x, y)
         rotation (float): ロボットの向き (rad)
         radius (float): ロボットの半径
-        path (list[tuple[float, float]]): ロボットの移動経路
     """
 
     position: tuple[float, float]
     rotation: float
     radius: float
 
-    _path: list[tuple[float, float]] = field(default_factory=list, init=False)
+    _path: list[tuple[float, float]] = field(default_factory=list)
     _path_index: int = 0
 
     def set_path(self, path: list[tuple[float, float]]) -> None:
@@ -31,7 +30,7 @@ class Robot(Visualizable):
         ロボットの移動経路を設定するメソッド
 
         Args:
-            path (list[tuple[float, float]]): 移動経路の座標リスト
+            path (list[tuple[float, float]]): ロボットの移動経路
         """
         self._path = path
         self._path_index = 0
@@ -72,8 +71,21 @@ class Robot(Visualizable):
                 self._path_index += 1
 
     def animate(self, ax: Axes) -> list[Artist]:
-        x, y = self.position
         animated: list[Artist] = []
+
+        if self._path:
+            # 経路の描画
+            path_x, path_y = zip(*self._path[self._path_index :])
+            (line,) = ax.plot(
+                path_x,
+                path_y,
+                color="red",
+                linestyle="--",
+                linewidth=2,
+            )
+            animated.append(line)
+
+        x, y = self.position
         # ロボットの円
         circle = Circle(
             (x, y),
