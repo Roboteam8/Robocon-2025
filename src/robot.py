@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 import numpy as np
+import numpy.typing as npt
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
@@ -22,15 +23,17 @@ class Robot(Visualizable):
     rotation: float
     radius: float
 
-    _path: list[tuple[float, float]] = field(default_factory=list)
+    _path: npt.NDArray[np.float64] = field(
+        default_factory=lambda: np.empty((0, 2), dtype=np.float64)
+    )
     _path_index: int = 0
 
-    def set_path(self, path: list[tuple[float, float]]) -> None:
+    def set_path(self, path: npt.NDArray[np.float64]) -> None:
         """
         ロボットの移動経路を設定するメソッド
 
         Args:
-            path (list[tuple[float, float]]): ロボットの移動経路
+            path (npt.NDArray[np.float64]): ロボットの移動経路
         """
         self._path = path
         self._path_index = 0
@@ -73,7 +76,7 @@ class Robot(Visualizable):
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
 
-        if self._path:
+        if self._path.size > 0:
             # 経路の描画
             path_x, path_y = zip(*self._path[self._path_index :])
             (line,) = ax.plot(

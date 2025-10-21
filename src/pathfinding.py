@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
+from scipy.interpolate import BSpline
 
 from stage import Stage
 from visualize import Visualizable
@@ -74,7 +75,7 @@ class PathPlanner(Visualizable):
 
     def plan_path(
         self, start: tuple[float, float], goal: tuple[float, float]
-    ) -> list[tuple[float, float]] | None:
+    ) -> npt.NDArray[np.float64] | None:
         """
         A*アルゴリズムで経路を計画するメソッド
 
@@ -83,7 +84,7 @@ class PathPlanner(Visualizable):
             goal (tuple[float, float]): ゴール位置 (x, y)
 
         Returns:
-            list[tuple[float, float]] | None: 経路点のリスト or None
+            npt.NDArray[np.float64] | None: 経路点のリスト or None
         """
         start_cell = self._nearest_free_cell(start)
         goal_cell = self._nearest_free_cell(goal)
@@ -93,19 +94,21 @@ class PathPlanner(Visualizable):
 
         path_cells = self._a_star_search(start_cell, goal_cell)
         if path_cells is not None:
-            path_world = []
+            path_world = np.empty((0, 2), dtype=np.float64)
             for cell in path_cells:
                 x, y = cell
                 world_x = (x + 0.5) * (self.stage.x_size / self.grid_map.shape[1])
                 world_y = (y + 0.5) * (self.stage.y_size / self.grid_map.shape[0])
-                path_world.append((world_x, world_y))
-            return path_world
+                path_world = np.append(
+                    path_world, np.array([[world_x, world_y]]), axis=0
+                )
+            return self._smooth_path(path_world)
 
         return None  # 経路が見つからなかった場合
 
     def _a_star_search(
         self, start: tuple[int, int], goal: tuple[int, int]
-    ) -> list[tuple[int, int]] | None:
+    ) -> npt.NDArray[np.float64] | None:
         """
         A*アルゴリズムで経路を検索するメソッド
 
@@ -114,7 +117,7 @@ class PathPlanner(Visualizable):
             goal (tuple[int, int]): ゴールセルの座標 (cell_x, cell_y)
 
         Returns:
-            list[tuple[int, int]] | None: 経路点のリスト or None
+            npt.NDArray[np.float64] | None: 経路点の配列 or None
         """
         open_set: set[tuple[int, int]] = set()
         closed_set: set[tuple[int, int]] = set()
@@ -230,7 +233,7 @@ class PathPlanner(Visualizable):
         self,
         came_from: dict[tuple[int, int], tuple[int, int]],
         current_node: tuple[int, int],
-    ) -> list[tuple[int, int]]:
+    ) -> npt.NDArray[np.float64]:
         """
         経路復元
 
@@ -239,14 +242,51 @@ class PathPlanner(Visualizable):
             current_node (tuple[int, int]): ゴールノード
 
         Returns:
-            list[tuple[int, int]]: 経路点のリスト
+            npt.NDArray[np.float64]: 経路点の配列
         """
-        path = []
+        total_path: list[tuple[int, int]] = [current_node]
         while current_node in came_from:
-            path.append(current_node)
             current_node = came_from[current_node]
-        path.append(current_node)
-        return path[::-1]  # 逆順にして返す
+            total_path.append(current_node)
+        total_path.reverse()
+        return np.array(total_path, dtype=np.float64)
+
+    def _smooth_path(self, path: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """
+        B-スプライン補間による経路の平滑化
+        Args:
+            path (npt.NDArray[np.float64]): 元の経路点の配列
+        Returns:
+            npt.NDArray[np.float64]: 平滑化された経路点の配列
+        """
+        if len(path) < 4:
+            return path
+
+        # 制御点数を減らしてスプラインを強くかける
+        n_reduced = max(4, len(path) // 2)
+        idx = np.linspace(0, len(path) - 1, n_reduced).astype(int)
+        path = path[idx]
+
+        # B-スプラインのパラメータ設定
+        degree = 3
+        n_control_points = len(path)
+        n_knots = n_control_points + degree + 1
+
+        # ノットベクトルの生成
+        knots = np.zeros(n_knots)
+        knots[degree : n_knots - degree] = np.linspace(0, 1, n_knots - 2 * degree)
+        knots[n_knots - degree :] = 1
+
+        # B-スプラインの生成
+        spline_x = BSpline(knots, path[:, 0], degree)
+        spline_y = BSpline(knots, path[:, 1], degree)
+
+        # 補間点の生成
+        n_points = max(2 * n_control_points, 100)
+        t_values = np.linspace(0, 1, n_points)
+        smooth_path = np.vstack((spline_x(t_values), spline_y(t_values))).T
+
+        return smooth_path
 
     def visualize(self, ax: Axes) -> None:
         ax.imshow(
