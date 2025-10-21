@@ -20,6 +20,7 @@ class PathPlanner(Visualizable):
 
     stage: Stage
     grid_map: npt.NDArray[np.uint8]
+    cell_size: int
 
     def __init__(self, stage: Stage, cell_size: int) -> None:
         """
@@ -30,6 +31,7 @@ class PathPlanner(Visualizable):
             cell_size (int): グリッドの1マスのサイズ（mm）
         """
         self.stage = stage
+        self.cell_size = cell_size
         # グリッドマップの初期化
         shape = stage.y_size // cell_size, stage.x_size // cell_size
         self.grid_map = np.zeros(shape, dtype=np.uint8)
@@ -92,23 +94,22 @@ class PathPlanner(Visualizable):
         if start_cell is None or goal_cell is None:
             return None
 
-        path_cells = self._a_star_search(start_cell, goal_cell)
-        if path_cells is not None:
-            path_world = np.empty((0, 2), dtype=np.float64)
-            for cell in path_cells:
-                x, y = cell
-                world_x = (x + 0.5) * (self.stage.x_size / self.grid_map.shape[1])
-                world_y = (y + 0.5) * (self.stage.y_size / self.grid_map.shape[0])
-                path_world = np.append(
-                    path_world, np.array([[world_x, world_y]]), axis=0
-                )
-            return self._smooth_path(path_world)
+        cell_path = self._a_star_search(start_cell, goal_cell)
+        if cell_path is not None:
+            # グリッドセル座標をワールド座標に変換
+            world_path = np.array(
+                [self._cell_to_world((cell_x, cell_y)) for cell_x, cell_y in cell_path],
+                dtype=np.float64,
+            )
+            # 経路の平滑化
+            smooth_path = self._smooth_path(world_path)
+            return smooth_path
 
         return None  # 経路が見つからなかった場合
 
     def _a_star_search(
         self, start: tuple[int, int], goal: tuple[int, int]
-    ) -> npt.NDArray[np.float64] | None:
+    ) -> npt.NDArray[np.int32] | None:
         """
         A*アルゴリズムで経路を検索するメソッド
 
@@ -117,7 +118,7 @@ class PathPlanner(Visualizable):
             goal (tuple[int, int]): ゴールセルの座標 (cell_x, cell_y)
 
         Returns:
-            npt.NDArray[np.float64] | None: 経路点の配列 or None
+            npt.NDArray[np.int32] | None: 経路点の配列 or None
         """
         open_set: set[tuple[int, int]] = set()
         closed_set: set[tuple[int, int]] = set()
@@ -166,9 +167,7 @@ class PathPlanner(Visualizable):
         Returns:
             tuple[int, int] | None: 最も近い空きセルの座標 (cell_x, cell_y) または None
         """
-        x, y = position
-        cell_x = int(x // (self.stage.x_size / self.grid_map.shape[1]))
-        cell_y = int(y // (self.stage.y_size / self.grid_map.shape[0]))
+        cell_x, cell_y = self._world_to_cell(position)
 
         if self.grid_map[cell_y, cell_x] == 0:
             return cell_x, cell_y
@@ -192,6 +191,36 @@ class PathPlanner(Visualizable):
                     queue.append((nx, ny))
 
         return None
+
+    def _world_to_cell(self, position: tuple[float, float]) -> tuple[int, int]:
+        """
+        ワールド座標をグリッドセル座標に変換するメソッド
+
+        Args:
+            position (tuple[float, float]): 位置 (x, y)
+
+        Returns:
+            tuple[int, int]: グリッドセルの座標 (cell_x, cell_y)
+        """
+        x, y = position
+        cell_x = np.ceil(x / self.cell_size).astype(int)
+        cell_y = np.ceil(y / self.cell_size).astype(int)
+        return cell_x, cell_y
+
+    def _cell_to_world(self, cell: tuple[int, int]) -> tuple[float, float]:
+        """
+        グリッドセル座標をワールド座標に変換するメソッド
+
+        Args:
+            cell (tuple[int, int]): グリッドセルの座標 (cell_x, cell_y)
+
+        Returns:
+            tuple[float, float]: 位置 (x, y)
+        """
+        cell_x, cell_y = cell
+        x = (cell_x + 0.5) * self.cell_size
+        y = (cell_y + 0.5) * self.cell_size
+        return x, y
 
     def _heuristic(self, cell1: tuple[int, int], cell2: tuple[int, int]) -> float:
         """
@@ -233,7 +262,7 @@ class PathPlanner(Visualizable):
         self,
         came_from: dict[tuple[int, int], tuple[int, int]],
         current_node: tuple[int, int],
-    ) -> npt.NDArray[np.float64]:
+    ) -> npt.NDArray[np.int32]:
         """
         経路復元
 
@@ -249,7 +278,7 @@ class PathPlanner(Visualizable):
             current_node = came_from[current_node]
             total_path.append(current_node)
         total_path.reverse()
-        return np.array(total_path, dtype=np.float64)
+        return np.array(total_path, dtype=np.int32)
 
     def _smooth_path(self, path: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """

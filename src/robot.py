@@ -48,37 +48,37 @@ class Robot(Visualizable):
         Args:
             dt (float): 経過時間 (秒)
         """
-        if self._path_index < len(self._path):
-            target_x, target_y = self._path[self._path_index]
-            current_x, current_y = self.position
-
-            direction = np.arctan2(target_y - current_y, target_x - current_x)
-            distance = np.hypot(target_x - current_x, target_y - current_y)
-
-            # 向きを更新
-            angle_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
-            max_rotation = self._rotation_speed * dt
-            if abs(angle_diff) < max_rotation:
-                self.rotation = direction
-            else:
-                self.rotation += np.sign(angle_diff) * max_rotation
-
-            # 位置を更新
-            move_distance = min(self._speed * dt, distance)
-            new_x = current_x + move_distance * np.cos(self.rotation)
-            new_y = current_y + move_distance * np.sin(self.rotation)
-            self.position = (new_x, new_y)
-
-            # 目的地に到達したか確認
-            if distance <= move_distance:
-                self._path_index += 1
+        if self._path_index >= len(self._path):
+            return
+        cx, cy = self.position
+        tx, ty = self._path[self._path_index]
+        distance = np.hypot(tx - cx, ty - cy)
+        direction = np.arctan2(ty - cy, tx - cx)
+        rotation_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
+        # 先に回転を行う
+        max_rotation = self._rotation_speed * dt
+        if abs(rotation_diff) > max_rotation:
+            self.rotation += np.sign(rotation_diff) * max_rotation
+            self.rotation %= 2 * np.pi
+            return
+        self.rotation = direction
+        # 次に直進を行う
+        max_distance = self._speed * dt
+        if distance > max_distance:
+            cx += max_distance * np.cos(direction)
+            cy += max_distance * np.sin(direction)
+            self.position = (cx, cy)
+            return
+        # 目標地点に到達
+        self.position = (tx, ty)
+        self._path_index += 1
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
 
         if self._path.size > 0:
             # 経路の描画
-            path_x, path_y = zip(*self._path[self._path_index :])
+            path_x, path_y = zip(*self._path)
             (line,) = ax.plot(
                 path_x,
                 path_y,
