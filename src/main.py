@@ -1,6 +1,7 @@
 import numpy as np
+from shapely import Point
 
-from pathfinding import PathPlanner
+from pathfinding import PathCalcurator
 from robot import Robot
 from stage import Goal, Stage, StartArea, Wall
 from visualize import visualize
@@ -21,17 +22,17 @@ def main():
             Goal(position=(0, 2000), size=1000, goal_id=3),
         ],
         ar_markers=[],
-        robot=Robot(position=(3750, 500), rotation=np.radians(180), radius=500 / 2),
+        robot=Robot(position=(4250, 500), rotation=np.radians(180), radius=500 / 2),
     )
 
-    path_planner = PathPlanner(stage=stage, cell_size=50)
-    destination = (500, 1750)
-    planned = path_planner.plan_path(
-        start=stage.start_area.position,
-        goal=destination,
+    path_calcurator = PathCalcurator(stage)
+    path = path_calcurator.calcurate_path(
+        start=Point(stage.robot.position),
+        goal=Point(500, 2500),
     )
-    if planned is not None:
-        stage.robot.set_path(planned)
+
+    if path:
+        stage.robot.set_path(np.array(path.coords))
 
     visualize(frame_rate=30)
 

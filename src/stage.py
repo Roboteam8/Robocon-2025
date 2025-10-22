@@ -174,8 +174,6 @@ class Stage(Visualizable):
 
     def visualize(self, ax: Axes):
         ax.set_title("Stage Visualization")
-        ax.set_xlim(-self.robot.radius, self.x_size + self.robot.radius)
-        ax.set_ylim(-self.robot.radius, self.y_size + self.robot.radius)
         ax.axis("off")
         ax.set_aspect("equal", adjustable="box")
 

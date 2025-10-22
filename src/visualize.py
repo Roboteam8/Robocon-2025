@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from typing import Callable
 
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -54,17 +55,22 @@ class Visualizable(metaclass=_InstanceTracker):
 VISUALIZABLES: list[Visualizable] = []
 
 
-def visualize(frame_rate: int) -> None:
+def visualize(
+    frame_rate: int, additional_plot: Callable[[Axes], None] = lambda _: None
+) -> None:
     """
     Matplotlibを使用してオブジェクトを可視化する関数
 
     Args:
         frame_rate (int): フレームレート (FPS)
+        additional_plot (Callable[[Axes], None], optional): 追加の描画を行う関数. デフォルトは空の関数.
     """
     fig, ax = plt.subplots()
 
     for visualizable in VISUALIZABLES:
         visualizable.visualize(ax)
+
+    additional_plot(ax)
 
     def update(_: int) -> list[Artist]:
         animated = []

@@ -54,24 +54,26 @@ class Robot(Visualizable):
         tx, ty = self._path[self._path_index]
         distance = np.hypot(tx - cx, ty - cy)
         direction = np.arctan2(ty - cy, tx - cx)
-        rotation_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
-        # 先に回転を行う
+        if distance < 1e-2:
+            self.position = (tx, ty)
+            self._path_index += 1
+            return
+        # 向きを回転させる
+        angle_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
         max_rotation = self._rotation_speed * dt
-        if abs(rotation_diff) > max_rotation:
-            self.rotation += np.sign(rotation_diff) * max_rotation
+        if abs(angle_diff) >= 1e-2:
+            rotation_amount = np.clip(angle_diff, -max_rotation, max_rotation)
+            self.rotation += rotation_amount
             self.rotation %= 2 * np.pi
             return
-        self.rotation = direction
-        # 次に直進を行う
+        else:
+            self.rotation = direction
+        # 位置を移動させる
         max_distance = self._speed * dt
-        if distance > max_distance:
-            cx += max_distance * np.cos(direction)
-            cy += max_distance * np.sin(direction)
-            self.position = (cx, cy)
-            return
-        # 目標地点に到達
-        self.position = (tx, ty)
-        self._path_index += 1
+        move_distance = min(distance, max_distance)
+        new_x = cx + move_distance * np.cos(self.rotation)
+        new_y = cy + move_distance * np.sin(self.rotation)
+        self.position = (new_x, new_y)
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
