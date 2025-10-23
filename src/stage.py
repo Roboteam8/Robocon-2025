@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 
 import numpy as np
@@ -14,25 +15,57 @@ class Wall(Visualizable):
     """
     壁の情報を管理するクラス
     Attributes:
-        start (tuple[int, int]): 壁の始点座標 (x, y)
-        end (tuple[int, int]): 壁の終点座標 (x, y)
+        x (float): 壁のx座標 (左端)
+        obstacled_y (list[tuple[float, float]]): 障害物があるy座標の範囲のリスト [(start_y, end_y), ...]
     """
 
-    start: tuple[int, int]
-    end: tuple[int, int]
+    x: float
+    obstacled_y: list[tuple[float, float]]
 
     def visualize(self, ax: Axes):
-        ax.plot(
-            [self.start[0], self.end[0]],
-            [self.start[1], self.end[1]],
-            color="brown",
-            linewidth=5,
-            solid_capstyle="butt",
-        )
+        for start_y, end_y in self.obstacled_y:
+            ax.add_patch(
+                Rectangle(
+                    (self.x, start_y),
+                    50,
+                    end_y - start_y,
+                    color="brown",
+                )
+            )
 
 
 @dataclass
-class Goal(Visualizable):
+class Area(Visualizable, metaclass=ABCMeta):
+    """
+    エリアの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): エリアの左下座標 (x, y)
+        size (int): エリアの一辺の長さ (mm)
+    """
+
+    position: tuple[int, int]
+    size: int
+
+    @abstractmethod
+    def _get_color(self) -> tuple[float, float, float]:
+        pass
+
+    def visualize(self, ax: Axes):
+        color = self._get_color()
+        rect = Rectangle(
+            self.position,
+            self.size,
+            self.size,
+            facecolor=(*color, 0.3),
+            edgecolor=color,
+            linewidth=2,
+        )
+        rect.set_clip_path(rect)
+        ax.add_patch(rect)
+
+
+@dataclass
+class GoalArea(Area):
     """
     ゴールの情報を管理するクラス
     Attributes:
@@ -41,20 +74,17 @@ class Goal(Visualizable):
         goal_id (int): ゴールの識別子
     """
 
-    position: tuple[int, int]
-    size: int
     goal_id: int
 
-    def visualize(self, ax: Axes):
-        ax.add_patch(
-            Rectangle(
-                self.position,
-                self.size,
-                self.size,
-                facecolor="lightgreen",
-                edgecolor="green",
-            )
+    def _get_color(self) -> tuple[float, float, float]:
+        return (
+            self.goal_id % 3 == 1,
+            self.goal_id % 3 == 2,
+            self.goal_id % 3 == 0,
         )
+
+    def visualize(self, ax: Axes):
+        super().visualize(ax)
         ax.text(
             self.position[0] + self.size / 2,
             self.position[1] + self.size / 2,
@@ -63,6 +93,40 @@ class Goal(Visualizable):
             fontsize=12,
             ha="center",
             va="center",
+        )
+
+
+@dataclass
+class StartArea(Area):
+    """
+    スタートエリアの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): スタートエリアの左下座標 (x, y)
+        size (int): スタートエリアの一辺の長さ (mm)
+        parcel_size (tuple[int, int]): 荷物のサイズ (幅, 高さ)
+    """
+
+    position: tuple[int, int]
+    size: int
+    parcel_size: tuple[int, int] = (175, 225)
+
+    def _get_color(self) -> tuple[float, float, float]:
+        return (1, 1, 0)
+
+    def visualize(self, ax: Axes):
+        super().visualize(ax)
+        center = self.position[0] + self.size / 2, self.position[1] + self.size / 2
+        ax.add_patch(
+            Rectangle(
+                (
+                    center[0] - self.parcel_size[0] / 2,
+                    center[1] - self.parcel_size[1] / 2,
+                ),
+                self.parcel_size[0],
+                self.parcel_size[1],
+                fill=False,
+                edgecolor="black",
+            )
         )
 
 
@@ -116,41 +180,6 @@ class ARMarker(Visualizable):
 
 
 @dataclass
-class StartArea(Visualizable):
-    """
-    スタートエリアの情報を管理するクラス
-    Attributes:
-        position (tuple[int, int]): スタートエリアの左下座標 (x, y)
-        size (int): スタートエリアの一辺の長さ (mm)
-    """
-
-    position: tuple[int, int]
-    size: int
-
-    def visualize(self, ax: Axes):
-        ax.add_patch(
-            Rectangle(
-                self.position,
-                self.size,
-                self.size,
-                facecolor="lightyellow",
-                edgecolor="yellow",
-            )
-        )
-        center = self.position[0] + self.size / 2, self.position[1] + self.size / 2
-        parcel_size = 175, 225
-        ax.add_patch(
-            Rectangle(
-                (center[0] - parcel_size[0] / 2, center[1] - parcel_size[1] / 2),
-                parcel_size[0],
-                parcel_size[1],
-                fill=False,
-                edgecolor="black",
-            )
-        )
-
-
-@dataclass
 class Stage(Visualizable):
     """
     ステージの情報を管理するクラス
@@ -167,8 +196,8 @@ class Stage(Visualizable):
     x_size: int
     y_size: int
     start_area: StartArea
-    walls: list[Wall]
-    goals: list[Goal]
+    wall: Wall
+    goals: list[GoalArea]
     ar_markers: list[ARMarker]
     robot: Robot
 

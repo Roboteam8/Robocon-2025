@@ -1,40 +1,41 @@
 import numpy as np
-from shapely import Point
+from matplotlib.axes import Axes
 
-from pathfinding import PathCalcurator
+from pathfinding import generate_path
 from robot import Robot
-from stage import Goal, Stage, StartArea, Wall
+from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
 
 
 def main():
+    start_area = StartArea(position=(4000, 0), size=1000)
+    goals = [
+        GoalArea(position=(1500, 0), size=1000, goal_id=1),
+        GoalArea(position=(2500, 2000), size=1000, goal_id=2),
+        GoalArea(position=(0, 2000), size=1000, goal_id=3),
+    ]
+    wall = Wall(
+        x=1000,
+        obstacled_y=[(0, 1000), (2000, 3000)],
+    )
+    robot = Robot(position=(4250, 500), rotation=np.radians(180), radius=500 / 2)
     stage = Stage(
         x_size=5000,
         y_size=3000,
-        start_area=StartArea(position=(4000, 0), size=1000),
-        walls=[
-            Wall(start=(1000, 0), end=(1000, 1000)),
-            Wall(start=(1000, 2000), end=(1000, 3000)),
-        ],
-        goals=[
-            Goal(position=(1500, 0), size=1000, goal_id=1),
-            Goal(position=(2500, 2000), size=1000, goal_id=2),
-            Goal(position=(0, 2000), size=1000, goal_id=3),
-        ],
+        start_area=start_area,
+        wall=wall,
+        goals=goals,
         ar_markers=[],
-        robot=Robot(position=(4250, 500), rotation=np.radians(180), radius=500 / 2),
+        robot=robot,
     )
 
-    path_calcurator = PathCalcurator(stage)
-    path = path_calcurator.calcurate_path(
-        start=Point(stage.robot.position),
-        goal=Point(500, 2500),
-    )
+    def additional_plot(ax: Axes):
+        for i, goal in enumerate(stage.goals):
+            path = generate_path(stage.start_area, goal)
+            path_x, path_y = zip(*path)
+            ax.plot(path_x, path_y, linestyle="--", color=f"C{i}")
 
-    if path:
-        stage.robot.set_path(np.array(path.coords))
-
-    visualize(frame_rate=30)
+    visualize(frame_rate=30, additional_plot=additional_plot)
 
 
 if __name__ == "__main__":
