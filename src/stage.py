@@ -220,4 +220,3 @@ class Stage(Visualizable):
             )
         )
 
-        return None
