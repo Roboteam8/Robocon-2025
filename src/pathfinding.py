@@ -21,9 +21,9 @@ class PathPlanner(Visualizable):
     _wall: Wall
     _expansion_radius: float
 
-    def __init__(self, stage: Stage):
+    def __init__(self, stage: Stage, safe_margin: float = 10):
         self._wall = stage.wall
-        self._expansion_radius = stage.robot.radius + 10
+        self._expansion_radius = stage.robot.radius + safe_margin
 
         outer_frame = LineString(
             [
