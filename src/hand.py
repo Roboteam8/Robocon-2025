@@ -14,10 +14,11 @@ GPIO.setup(SERVO_LEFT, GPIO.OUT)
 GPIO.setup(SERVO_RIGHT, GPIO.OUT)
 
 # ===== サーボPWM設定 =====
-pwm_left = GPIO.PWM(SERVO_LEFT, 50)   # 50Hz
+pwm_left = GPIO.PWM(SERVO_LEFT, 50)  # 50Hz
 pwm_right = GPIO.PWM(SERVO_RIGHT, 50)
 pwm_left.start(0)
 pwm_right.start(0)
+
 
 # ===== サーボ角度設定関数 =====
 def set_angle(pwm, angle):
@@ -27,8 +28,9 @@ def set_angle(pwm, angle):
     """
     duty = 2 + (angle / 18)  # SG90などの標準サーボ用
     pwm.ChangeDutyCycle(duty)
-    time.sleep(0.5)           # サーボが動く時間を確保
-    pwm.ChangeDutyCycle(0)    # 動作後はパルスを止める
+    time.sleep(0.5)  # サーボが動く時間を確保
+    pwm.ChangeDutyCycle(0)  # 動作後はパルスを止める
+
 
 # ===== 超音波距離測定関数（タイムアウト付き） =====
 def get_distance(trig, echo, timeout=1.0):
@@ -59,6 +61,7 @@ def get_distance(trig, echo, timeout=1.0):
     distance = pulse_duration * 17150  # cm換算
     return round(distance, 2)
 
+
 # ===== メインループ =====
 try:
     while True:
@@ -66,13 +69,13 @@ try:
 
         if dist is None:
             print("距離が測れません")
-            set_angle(pwm_left, 0)    # 左サーボ安全位置
+            set_angle(pwm_left, 0)  # 左サーボ安全位置
             set_angle(pwm_right, 160)  # 右サーボ中央位置
         else:
             print(f"距離: {dist} cm")
             # 距離が10±5cmの範囲でサーボを動作
             if 5 <= dist <= 15:
-                set_angle(pwm_left, 40)   # 左サーボ40°
+                set_angle(pwm_left, 40)  # 左サーボ40°
                 set_angle(pwm_right, 120)  # 右サーボ中央90°を基準に-40° → 50°
             else:
                 set_angle(pwm_left, 0)
