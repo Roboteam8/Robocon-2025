@@ -5,6 +5,7 @@ from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
+from pathfinding import Path
 from visualize import Visualizable
 
 
@@ -22,20 +23,23 @@ class Robot(Visualizable):
     rotation: float
     radius: float
 
-    _path: list[tuple[float, float]] = field(default_factory=list)
+    _path: Path | None = field(init=False, default=None)
     _path_index: int = 0
 
-    def set_path(self, path: list[tuple[float, float]]) -> None:
+    def set_path(self, path: Path) -> None:
         """
         ロボットの移動経路を設定するメソッド
 
         Args:
-            path (list[tuple[float, float]]): ロボットの移動経路
+            path (Path): ロボットの移動経路
         """
+        if self._path:
+            self._path.active = False
         self._path = path
+        self._path.active = True
         self._path_index = 0
 
-    _speed: float = 100  # mm/s
+    _speed: float = 200  # mm/s
     _rotation_speed: float = np.radians(90)  # rad/s
 
     def update(self, dt: float) -> None:
@@ -45,7 +49,11 @@ class Robot(Visualizable):
         Args:
             dt (float): 経過時間 (秒)
         """
+        if not self._path:
+            return
+
         if self._path_index >= len(self._path):
+            self._path.active = False
             return
         cx, cy = self.position
         tx, ty = self._path[self._path_index]
@@ -74,19 +82,6 @@ class Robot(Visualizable):
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
-
-        if self._path:
-            # 経路の描画
-            path_x, path_y = zip(*self._path)
-            (line,) = ax.plot(
-                path_x,
-                path_y,
-                color="red",
-                linestyle="--",
-                linewidth=2,
-            )
-            animated.append(line)
-
         x, y = self.position
         # ロボットの円
         circle = Circle(

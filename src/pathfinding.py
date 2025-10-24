@@ -1,31 +1,46 @@
-from stage import Area
+from matplotlib.artist import Artist
+from matplotlib.axes import Axes
+
+from visualize import Visualizable
 
 
-def generate_path(start: Area, end: Area) -> list[tuple[float, float]]:
+class Path(Visualizable, list[tuple[float, float]]):
     """
-    エリアからエリアまでの経路を生成する関数
-
-    Args:
-        start (Area): スタートエリア
-        end (Area): ゴールエリア
-
-    Returns:
-        list[tuple[float, float]]: 経路上の座標リスト
+    経路の情報を管理するクラス
+    Attributes:
+        color (str): 経路の色
+        active (bool): 経路が選択されているかどうか
     """
-    sx, sy = (
-        start.position[0] + start.size / 2,
-        start.position[1] + start.size / 2,
-    )
-    ex, ey = (end.position[0] + end.size / 2, end.position[1] + end.size / 2)
 
-    path = [(sx, sy)]
+    color: str
+    active: bool = False
 
-    if min(sx, ex) < 1000 < max(sx, ex):
-        path.append((sx, 1500))
-        path.append((ex, 1500))
-    elif sx != ex and sy != ey:
-        path.append((ex, sy))
+    def __init__(
+        self, start: tuple[float, float], end: tuple[float, float], color: str
+    ):
+        super().__init__()
+        self.color = color
 
-    path.append((ex, ey))
+        sx, sy = start
+        ex, ey = end
 
-    return path
+        self.append((sx, sy))
+
+        if min(sx, ex) < 1000 < max(sx, ex):
+            self.append((sx, 1500))
+            self.append((ex, 1500))
+        elif sx != ex and sy != ey:
+            self.append((ex, sy))
+
+        self.append((ex, ey))
+
+    def animate(self, ax: Axes) -> list[Artist]:
+        path_x, path_y = zip(*self)
+        (line,) = ax.plot(
+            path_x,
+            path_y,
+            linestyle="--",
+            color=self.color,
+            alpha=1 if self.active else 0.4,
+        )
+        return [line]

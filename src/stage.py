@@ -46,6 +46,13 @@ class Area(Visualizable, metaclass=ABCMeta):
     position: tuple[int, int]
     size: int
 
+    @property
+    def center(self) -> tuple[float, float]:
+        return (
+            self.position[0] + self.size / 2,
+            self.position[1] + self.size / 2,
+        )
+
     @abstractmethod
     def _get_color(self) -> tuple[float, float, float]:
         pass

@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib.axes import Axes
 
-from pathfinding import generate_path
+from pathfinding import Path
 from robot import Robot
 from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
@@ -18,7 +18,14 @@ def main():
         x=1000,
         obstacled_y=[(0, 1000), (2000, 3000)],
     )
-    robot = Robot(position=(4250, 500), rotation=np.radians(180), radius=500 / 2)
+    robot = Robot(
+        position=(
+            start_area.position[0] + start_area.size / 2,
+            start_area.position[1] + start_area.size / 2,
+        ),
+        rotation=np.radians(180),
+        radius=500 / 2,
+    )
     stage = Stage(
         x_size=5000,
         y_size=3000,
@@ -29,11 +36,14 @@ def main():
         robot=robot,
     )
 
+    pathes = [
+        Path(start_area.center, goal.center, color=f"C{i}")
+        for i, goal in enumerate(stage.goals)
+    ]
+    robot.set_path(pathes[0])
+
     def additional_plot(ax: Axes):
-        for i, goal in enumerate(stage.goals):
-            path = generate_path(stage.start_area, goal)
-            path_x, path_y = zip(*path)
-            ax.plot(path_x, path_y, linestyle="--", color=f"C{i}")
+        pass
 
     visualize(frame_rate=30, additional_plot=additional_plot)
 
