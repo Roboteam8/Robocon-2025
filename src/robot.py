@@ -84,8 +84,8 @@ class Robot(Visualizable):
                 linestyle="--",
                 color="magenta",
                 linewidth=1,
-            )[0]
-            animated.append(path_line)
+            )
+            animated.extend(path_line)
 
         x, y = self.position
         # ロボットの円

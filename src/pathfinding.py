@@ -88,7 +88,7 @@ class PathPlanner(Visualizable):
         return (nearest_point.x, nearest_point.y)
 
     def visualize(self, ax: Axes) -> None:
-        plt.rcParams["hatch.linewidth"] = 1
+        plt.rcParams["hatch.linewidth"] = 5
         ax.add_patch(
             patch_from_polygon(
                 self.shape, hatch="//", facecolor="gray", edgecolor="yellow", alpha=0.3
