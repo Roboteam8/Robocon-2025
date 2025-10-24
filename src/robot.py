@@ -106,7 +106,6 @@ class Robot(Visualizable):
             arrow_dx,
             arrow_dy,
             width=5,
-            capstyle="butt",
             color="white",
         )
         animated.append(ax.add_patch(arrow))
