@@ -23,11 +23,12 @@ class Wall(Visualizable):
     obstacled_y: list[tuple[float, float]]
 
     def visualize(self, ax: Axes):
+        width = 50  # 壁の幅
         for start_y, end_y in self.obstacled_y:
             ax.add_patch(
                 Rectangle(
-                    (self.x, start_y),
-                    50,
+                    (self.x - width / 2, start_y),
+                    width,
                     end_y - start_y,
                     color="brown",
                 )
@@ -54,17 +55,16 @@ class Area(Visualizable, metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def _get_color(self) -> tuple[float, float, float]:
+    def _get_color(self) -> str:
         pass
 
     def visualize(self, ax: Axes):
-        color = self._get_color()
         rect = Rectangle(
             self.position,
             self.size,
             self.size,
-            facecolor=(*color, 0.3),
-            edgecolor=color,
+            edgecolor=self._get_color(),
+            fill=False,
             linewidth=2,
         )
         rect.set_clip_path(rect)
@@ -83,12 +83,8 @@ class GoalArea(Area):
 
     goal_id: int
 
-    def _get_color(self) -> tuple[float, float, float]:
-        return (
-            self.goal_id % 3 == 1,
-            self.goal_id % 3 == 2,
-            self.goal_id % 3 == 0,
-        )
+    def _get_color(self) -> str:
+        return f"C{self.goal_id - 1}"
 
     def visualize(self, ax: Axes):
         super().visualize(ax)
@@ -117,8 +113,8 @@ class StartArea(Area):
     size: int
     parcel_size: tuple[int, int] = (175, 225)
 
-    def _get_color(self) -> tuple[float, float, float]:
-        return (1, 1, 0)
+    def _get_color(self) -> str:
+        return "yellow"
 
     def visualize(self, ax: Axes):
         super().visualize(ax)

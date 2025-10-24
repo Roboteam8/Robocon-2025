@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.backend_bases import Event, MouseEvent
 
-from pathfinding import Path
+from pathfinding import PathPlanner
 from robot import Robot
 from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
@@ -35,15 +36,20 @@ def main():
         ar_markers=[],
         robot=robot,
     )
+    path_planner = PathPlanner(stage)
 
-    pathes = [
-        Path(start_area.center, goal.center, color=f"C{i}")
-        for i, goal in enumerate(stage.goals)
-    ]
-    robot.set_path(pathes[0])
+    robot.set_path(path_planner.plan_path(robot.position, goals[2].center))
 
     def additional_plot(ax: Axes):
-        pass
+        def on_click(event: Event):
+            if not isinstance(event, MouseEvent):
+                return
+            x, y = event.xdata, event.ydata
+            if x is None or y is None:
+                return
+            robot.set_path(path_planner.plan_path(robot.position, (x, y)))
+
+        ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
     visualize(frame_rate=30, additional_plot=additional_plot)
 
