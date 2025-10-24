@@ -7,5 +7,4 @@
       "source.fixAll": "explicit",
     }
   },
-  "python.analysis.typeCheckingMode": "strict"
 }
