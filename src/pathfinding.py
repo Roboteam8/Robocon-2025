@@ -1,9 +1,11 @@
+from itertools import pairwise
+
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from shapely import LineString, Point, Polygon, unary_union
 from shapely.plotting import patch_from_polygon
 
-from stage import Stage
+from stage import Stage, Wall
 from visualize import Visualizable
 
 
@@ -16,7 +18,13 @@ class PathPlanner(Visualizable):
 
     shape: Polygon = Polygon()
 
+    _wall: Wall
+    _expansion_radius: float
+
     def __init__(self, stage: Stage):
+        self._wall = stage.wall
+        self._expansion_radius = stage.robot.radius + 10
+
         outer_frame = LineString(
             [
                 (0, 0),
@@ -32,7 +40,7 @@ class PathPlanner(Visualizable):
         ]
 
         buffered_obstacles = [
-            obstacle.buffer(stage.robot.radius + 10)
+            obstacle.buffer(self._expansion_radius)
             for obstacle in wall_shapes + [outer_frame]
         ]
         merged_obstacles = unary_union(buffered_obstacles)
@@ -58,9 +66,19 @@ class PathPlanner(Visualizable):
 
         path = [(sx, sy)]
 
-        if min(sx, ex) < 1000 < max(sx, ex):
-            path.append((sx, 1500))
-            path.append((ex, 1500))
+        if min(sx, ex) < self._wall.x < max(sx, ex):
+            free_y_area: list[tuple[float, float]] = []
+            for w1, w2 in pairwise(self._wall.obstacled_y):
+                if w1[1] + self._expansion_radius < w2[0] - self._expansion_radius:
+                    free_y_area.append(
+                        (w1[1] + self._expansion_radius, w2[0] - self._expansion_radius)
+                    )
+
+            free_y_mids = [(fs + fe) / 2 for fs, fe in free_y_area]
+            y_mid = min(free_y_mids, key=lambda y: abs((sy + ey) / 2 - y))
+
+            path.append((sx, y_mid))
+            path.append((ex, y_mid))
         elif sx != ex and sy != ey:
             path.append((ex, sy))
 
