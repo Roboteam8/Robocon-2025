@@ -100,10 +100,11 @@ class PathPlanner(Visualizable):
         p = Point(point)
         if not self.shape.contains(p):
             return point
-        nearest_point = self.shape.interiors[0].interpolate(
-            self.shape.interiors[0].project(p)
-        )
-        return (nearest_point.x, nearest_point.y)
+        for interior in self.shape.interiors:
+            if interior.contains(p):
+                nearest = interior.interpolate(interior.project(p))
+                return (nearest.x, nearest.y)
+        return point
 
     def visualize(self, ax: Axes) -> None:
         plt.rcParams["hatch.linewidth"] = 5
