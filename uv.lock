@@ -83,6 +83,18 @@ wheels = [
 ]
 
 [[package]]
+name = "fake-rpi"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/a0/4613cce35cc9683f3366c226b3525f8352f977e34afb13505ec85e704cfe/fake_rpi-0.7.1.tar.gz", hash = "sha256:9194842c49ad17afa5b492c52172d7e15790563e36a01fc5f525b606416e00ee", size = 7719, upload-time = "2020-05-26T22:10:55.961Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/c7/8b32c5a2e94445dfdcaf16a35776d68335a7dfd315a6614956286d88276f/fake_rpi-0.7.1-py3-none-any.whl", hash = "sha256:2ca5af521c095fcfd1d368a4e96d6b4445b3ad673470d63f0867d3411ac38ceb", size = 9522, upload-time = "2020-05-26T22:10:54.993Z" },
+]
+
+[[package]]
 name = "fonttools"
 version = "4.60.0"
 source = { registry = "https://pypi.org/simple" }
@@ -128,6 +140,7 @@ name = "itf-robocon-2025"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "fake-rpi", marker = "sys_platform != 'linux'" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "rpi-gpio", marker = "sys_platform == 'linux'" },
@@ -141,6 +154,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fake-rpi", marker = "sys_platform != 'linux'", specifier = ">=0.7.1" },
     { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "rpi-gpio", marker = "sys_platform == 'linux'", specifier = ">=0.7.1" },

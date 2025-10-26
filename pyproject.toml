@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fake-rpi>=0.7.1 ; sys_platform != 'linux'",
     "matplotlib>=3.10.6",
     "numpy>=2.3.3",
     "rpi-gpio>=0.7.1 ; sys_platform == 'linux'",
@@ -12,9 +13,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.13.1",
-]
+dev = ["ruff>=0.13.1"]
 
 [tool.pyright]
 reportUnknownMemberType = false

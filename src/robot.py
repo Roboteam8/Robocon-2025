@@ -5,7 +5,35 @@ from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
+try:
+    from RPI import _GPIO, GPIO  # pyright: ignore[reportMissingImports]
+except ImportError:
+    from fake_rpi.RPi import _GPIO, GPIO  # pyright: ignore[reportMissingImports]
+
 from visualize import Visualizable
+
+
+@dataclass
+class Wheel:
+    start_stop_pin: int
+    run_break_pin: int
+    direction_pin: int
+    pwm_pin: int
+
+    _pwm: _GPIO.PWM
+
+    def __post_init__(self):
+        GPIO.setup(self.start_stop_pin, GPIO.OUT)
+        GPIO.setup(self.run_break_pin, GPIO.OUT)
+        GPIO.setup(self.direction_pin, GPIO.OUT)
+        GPIO.setup(self.pwm_pin, GPIO.OUT)
+
+        self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
+
+    def run(self, speed: int):
+        if speed == 0:
+            return
+        direction = int(speed > 0)
 
 
 @dataclass
