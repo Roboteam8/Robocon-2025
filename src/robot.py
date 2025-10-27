@@ -1,3 +1,4 @@
+import asyncio
 import time
 from dataclasses import dataclass, field
 
@@ -32,7 +33,7 @@ class Wheel:
 
     def syncDrive(self, speed: float, duration: float):
         """
-        指定された速度でホイールを駆動するメソッド
+        指定された速度でホイールを駆動するメソッド (同期的)
         Args:
             speed (float): ホイールの速度 (-100 to 100)
             duration (float): 駆動時間 (秒)
@@ -43,6 +44,21 @@ class Wheel:
         GPIO.output(self.direction_pin, speed > 0)
         GPIO.output(self.start_stop_pin, GPIO.LOW)
         time.sleep(duration)
+        GPIO.output(self.start_stop_pin, GPIO.LOW)
+
+    async def drive(self, speed: float, duration: float):
+        """
+        指定された速度でホイールを駆動するメソッド (非同期的)
+        Args:
+            speed (float): ホイールの速度 (-100 to 100)
+            duration (float): 駆動時間 (秒)
+        """
+        if speed == 0:
+            return
+        self._pwm.ChangeDutyCycle(abs(speed))
+        GPIO.output(self.direction_pin, speed > 0)
+        GPIO.output(self.start_stop_pin, GPIO.LOW)
+        await asyncio.sleep(duration)
         GPIO.output(self.start_stop_pin, GPIO.LOW)
 
 
