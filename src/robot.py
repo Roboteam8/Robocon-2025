@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -5,11 +6,7 @@ from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
-try:
-    from RPI import _GPIO, GPIO  # pyright: ignore[reportMissingImports]
-except ImportError:
-    from fake_rpi.RPi import _GPIO, GPIO  # pyright: ignore[reportMissingImports]
-
+from gpio import GPIO, PWM
 from visualize import Visualizable
 
 
@@ -20,7 +17,7 @@ class Wheel:
     direction_pin: int
     pwm_pin: int
 
-    _pwm: _GPIO.PWM
+    _pwm: PWM
 
     def __post_init__(self):
         GPIO.setup(self.start_stop_pin, GPIO.OUT)
@@ -29,11 +26,24 @@ class Wheel:
         GPIO.setup(self.pwm_pin, GPIO.OUT)
 
         self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
+        self._pwm.start(0)
 
-    def run(self, speed: int):
+        GPIO.output(self.start_stop_pin, GPIO.HIGH)
+
+    def syncDrive(self, speed: float, duration: float):
+        """
+        指定された速度でホイールを駆動するメソッド
+        Args:
+            speed (float): ホイールの速度 (-100 to 100)
+            duration (float): 駆動時間 (秒)
+        """
         if speed == 0:
             return
-        direction = int(speed > 0)
+        self._pwm.ChangeDutyCycle(abs(speed))
+        GPIO.output(self.direction_pin, speed > 0)
+        GPIO.output(self.start_stop_pin, GPIO.LOW)
+        time.sleep(duration)
+        GPIO.output(self.start_stop_pin, GPIO.LOW)
 
 
 @dataclass
