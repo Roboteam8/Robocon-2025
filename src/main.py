@@ -3,7 +3,7 @@ from matplotlib.axes import Axes
 from matplotlib.backend_bases import Event, MouseEvent
 
 from pathfinding import PathPlanner
-from robot import Robot
+from robot import Robot, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
 
@@ -19,6 +19,8 @@ def main():
         x=1000,
         obstacled_y=[(0, 1000), (2000, 3000)],
     )
+    r_wheel = Wheel(start_stop_pin=16, run_break_pin=20, direction_pin=21, pwm_pin=2)
+    l_wheel = Wheel(start_stop_pin=13, run_break_pin=19, direction_pin=26, pwm_pin=3)
     robot = Robot(
         position=(
             start_area.position[0] + start_area.size / 2,
@@ -26,6 +28,8 @@ def main():
         ),
         rotation=np.radians(180),
         radius=500 / 2,
+        r_wheel=r_wheel,
+        l_wheel=l_wheel,
     )
     stage = Stage(
         x_size=5000,
@@ -38,7 +42,7 @@ def main():
     )
     path_planner = PathPlanner(stage)
 
-    robot.set_path(path_planner.plan_path(robot.position, goals[2].center))
+    _ = robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
     def additional_plot(ax: Axes):
         def on_click(event: Event):
@@ -47,7 +51,7 @@ def main():
             x, y = event.xdata, event.ydata
             if x is None or y is None:
                 return
-            robot.set_path(path_planner.plan_path(robot.position, (x, y)))
+            _ = robot.drive(path_planner.plan_path(robot.position, (x, y)))
 
         ax.figure.canvas.mpl_connect("button_press_event", on_click)
 

@@ -1,5 +1,4 @@
 import asyncio
-import time
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -18,7 +17,7 @@ class Wheel:
     direction_pin: int
     pwm_pin: int
 
-    _pwm: PWM
+    _pwm: PWM = field(init=False)
     _run_break_on: bool = False
 
     def __post_init__(self):
@@ -34,13 +33,25 @@ class Wheel:
         GPIO.output(self.start_stop_pin, GPIO.HIGH)
 
     def on(self):
+        """
+        ホイールを動作状態にするメソッド
+        """
         GPIO.output(self.start_stop_pin, GPIO.LOW)
 
     def off(self):
+        """
+        ホイールを停止状態にするメソッド
+        """
         GPIO.output(self.start_stop_pin, GPIO.HIGH)
 
     def set_speed(self, speed: float):
-        pass
+        """
+        ホイールの速度を設定するメソッド
+        Args:
+            speed (float): ホイールの速度 (-100.0 〜 100.0)
+        """
+        GPIO.output(self.direction_pin, speed < 0)
+        self._pwm.ChangeDutyCycle(abs(speed))
 
 
 @dataclass
@@ -62,56 +73,73 @@ class Robot(Visualizable):
     r_wheel: Wheel
     l_wheel: Wheel
 
-    _path: list[tuple[float, float]] = field(default_factory=list)
-    _path_index: int = 0
+    _dc = 20
+    _r_min = _dc * 50
+    _wheel_circumference = 100 * np.pi
+    _speed = _wheel_circumference * _r_min / 60
 
-    def set_path(self, path: list[tuple[float, float]]) -> None:
+    async def _go_straight(self, length: float):
         """
-        ロボットの移動経路を設定するメソッド
-
+        ロボットを直進させるメソッド
         Args:
-            path (list[tuple[float, float]]): ロボットの移動経路
+            length (float): 直進距離 (mm)
+        """
+        duration = length / self._speed
+        self.r_wheel.set_speed(self._dc)
+        self.l_wheel.set_speed(self._dc)
+        self.r_wheel.on()
+        self.l_wheel.on()
+        await asyncio.sleep(duration)
+        self.r_wheel.off()
+        self.l_wheel.off()
+
+    async def _turn(self, angle: float):
+        """
+        ロボットを回転させるメソッド
+        Args:
+            angle (float): 回転角度 (rad)
+        Returns:
+        """
+        arc_length = self.radius * abs(angle)
+        duration = arc_length / self._speed
+        if angle > 0:
+            self.r_wheel.set_speed(-self._dc)
+            self.l_wheel.set_speed(self._dc)
+        else:
+            self.r_wheel.set_speed(self._dc)
+            self.l_wheel.set_speed(-self._dc)
+        self.r_wheel.on()
+        self.l_wheel.on()
+        await asyncio.sleep(duration)
+        self.r_wheel.off()
+        self.l_wheel.off()
+
+    _path: list[tuple[float, float]] = field(default_factory=list)
+
+    async def drive(self, path: list[tuple[float, float]]) -> None:
+        """
+        ロボットを指定された経路に沿って移動させるメソッド
+        Args:
+            path (list[tuple[float, float]]): 移動経路の座標リスト
         """
         self._path = path
-        self._path_index = 0
 
-    _speed: float = 500  # mm/s
-    _rotation_speed: float = np.radians(90)  # rad/s
+        for tx, ty in self._path:
+            cx, cy = self.position
+            if tx == cx and ty == cy:
+                continue
 
-    def update(self, dt: float) -> None:
-        """
-        ロボットの位置と向きを更新するメソッド
+            angle_diff = np.arctan2(ty - cy, tx - cx) - self.rotation
+            if abs(angle_diff) > 1e-2:
+                await self._turn(angle_diff)
+                # TODO: mock
+                self.rotation = np.arctan2(ty - cy, tx - cx)
 
-        Args:
-            dt (float): 経過時間 (秒)
-        """
-        if not self._path or self._path_index >= len(self._path):
-            return
-
-        cx, cy = self.position
-        tx, ty = self._path[self._path_index]
-        distance = np.hypot(tx - cx, ty - cy)
-        direction = np.arctan2(ty - cy, tx - cx)
-        if distance < 1e-2:
-            self.position = (tx, ty)
-            self._path_index += 1
-            return
-        # 向きを回転させる
-        angle_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
-        max_rotation = self._rotation_speed * dt
-        if abs(angle_diff) >= 1e-2:
-            rotation_amount = np.clip(angle_diff, -max_rotation, max_rotation)
-            self.rotation += rotation_amount
-            self.rotation %= 2 * np.pi
-            return
-        else:
-            self.rotation = direction
-        # 位置を移動させる
-        max_distance = self._speed * dt
-        move_distance = min(distance, max_distance)
-        new_x = cx + move_distance * np.cos(self.rotation)
-        new_y = cy + move_distance * np.sin(self.rotation)
-        self.position = (new_x, new_y)
+            position_diff = np.hypot(tx - cx, ty - cy)
+            if abs(position_diff) > 1e-2:
+                await self._go_straight(position_diff)
+                # TODO: mock
+                self.position = (tx, ty)
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
