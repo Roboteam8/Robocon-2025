@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Callable
 from typing import Final, Literal, TypedDict
 
@@ -88,8 +87,6 @@ def input(channel: int, /) -> bool:
     return False
 
 
-self = sys.modules[__name__]
-
 _mode: Literal[10, 11] | None
 
 
@@ -100,7 +97,7 @@ def setmode(mode: Literal[10, 11], /) -> None:
 
 def getmode() -> Literal[10, 11] | None:
     _debug("GPIO.getmode called")
-    return self._mode
+    return _mode  # noqa: F821
 
 
 def add_event_detect(
@@ -108,20 +105,67 @@ def add_event_detect(
     edge: int,
     callback: _EventCallback | None = None,
     bouncetime: int = -666,
-) -> None: ...
-def remove_event_detect(channel: int, /) -> None: ...
-def event_detected(channel: int, /) -> bool: ...
-def add_event_callback(channel: int, callback: _EventCallback) -> None: ...
+) -> None:
+    _debug(
+        f"GPIO.add_event_detect called with channel: {channel}, edge: {edge}, callback: {callback}, bouncetime: {bouncetime}"
+    )
+
+
+def remove_event_detect(channel: int, /) -> None:
+    _debug(f"GPIO.remove_event_detect called with channel: {channel}")
+
+
+def event_detected(channel: int, /) -> bool:
+    _debug(f"GPIO.event_detected called with channel: {channel}")
+    return False
+
+
+def add_event_callback(channel: int, callback: _EventCallback) -> None:
+    _debug(
+        f"GPIO.add_event_callback called with channel: {channel}, callback: {callback}"
+    )
+
+
 def wait_for_edge(
     channel: int, edge: int, bouncetime: int = -666, timeout: int = -1
-) -> int | None: ...
-def gpio_function(channel: int, /) -> int: ...
-def setwarnings(gpio_warnings: bool, /) -> None: ...
+) -> int | None:
+    _debug(
+        f"GPIO.wait_for_edge called with channel: {channel}, edge: {edge}, bouncetime: {bouncetime}, timeout: {timeout}"
+    )
+    return None
+
+
+def gpio_function(channel: int, /) -> int:
+    _debug(f"GPIO.gpio_function called with channel: {channel}")
+    return UNKNOWN
+
+
+def setwarnings(gpio_warnings: bool, /) -> None:
+    _debug(f"GPIO.setwarnings called with gpio_warnings: {gpio_warnings}")
 
 
 class PWM:
-    def __init__(self, channel: int, frequency: float, /) -> None: ...
-    def start(self, dutycycle: float, /) -> None: ...
-    def ChangeDutyCycle(self, dutycycle: float, /) -> None: ...
-    def ChangeFrequency(self, frequency: float, /) -> None: ...
-    def stop(self) -> None: ...
+    def __init__(self, channel: int, frequency: float, /) -> None:
+        self.channel = channel
+        self.freqency = frequency
+
+    def start(self, dutycycle: float, /) -> None:
+        self.dutycycle = dutycycle
+        _debug(
+            f"GPIO.PWM.start called on channel: {self.channel} with dutycycle: {dutycycle}"
+        )
+
+    def ChangeDutyCycle(self, dutycycle: float, /) -> None:
+        self.dutycycle = dutycycle
+        _debug(
+            f"GPIO.PWM.ChangeDutyCycle called on channel: {self.channel} with dutycycle: {dutycycle}"
+        )
+
+    def ChangeFrequency(self, frequency: float, /) -> None:
+        self.frequency = frequency
+        _debug(
+            f"GPIO.PWM.ChangeFrequency called on channel: {self.channel} with frequency: {frequency}"
+        )
+
+    def stop(self) -> None:
+        _debug(f"GPIO.PWM.stop called on channel: {self.channel}")

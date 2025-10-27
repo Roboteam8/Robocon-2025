@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fake-rpi",
     "matplotlib>=3.10.6",
     "numpy>=2.3.3",
     "rpi-gpio>=0.7.1 ; sys_platform == 'linux'",
@@ -21,6 +20,3 @@ reportUnknownMemberType = false
 
 [tool.ruff.lint]
 extend-select = ["I"]
-
-[tool.uv.sources]
-fake-rpi = { git = "https://github.com/sn4k3/FakeRPi" }

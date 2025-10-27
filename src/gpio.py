@@ -5,9 +5,11 @@ try:
     from RPi import GPIO  # pyright: ignore[reportMissingModuleSource]  # noqa: F401
     from RPi.GPIO import PWM  # pyright: ignore[reportMissingModuleSource]  # noqa: F401
 except ImportError:
-    from FakeRPi import GPIO  # pyright: ignore[reportMissingModuleSource]  # noqa: F401
-    from FakeRPi.PWM import (
-        PWM,  # pyright: ignore[reportMissingModuleSource]  # noqa: F401
+    from mock.RPi import (
+        GPIO,  # noqa: F401
+    )
+    from mock.RPi.GPIO import (
+        PWM,  # noqa: F401
     )
 
-GPIO.setmode(GPIO.BCM)  # pyright: ignore[reportArgumentType]
+GPIO.setmode(GPIO.BCM)
