@@ -1,3 +1,5 @@
+import asyncio
+import time
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -5,7 +7,40 @@ from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
+from gpio import GPIO, PWM
 from visualize import Visualizable
+
+
+@dataclass
+class Wheel:
+    start_stop_pin: int
+    run_break_pin: int
+    direction_pin: int
+    pwm_pin: int
+
+    _pwm: PWM
+    _run_break_on: bool = False
+
+    def __post_init__(self):
+        GPIO.setup(self.start_stop_pin, GPIO.OUT)
+        GPIO.setup(self.run_break_pin, GPIO.OUT)
+        GPIO.setup(self.direction_pin, GPIO.OUT)
+        GPIO.setup(self.pwm_pin, GPIO.OUT)
+
+        self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
+        self._pwm.start(0)
+
+        GPIO.output(self.run_break_pin, GPIO.HIGH)
+        GPIO.output(self.start_stop_pin, GPIO.HIGH)
+
+    def on(self):
+        GPIO.output(self.start_stop_pin, GPIO.LOW)
+
+    def off(self):
+        GPIO.output(self.start_stop_pin, GPIO.HIGH)
+
+    def set_speed(self, speed: float):
+        pass
 
 
 @dataclass
@@ -16,11 +51,16 @@ class Robot(Visualizable):
         position (tuple[float, float]): ロボットの位置 (x, y)
         rotation (float): ロボットの向き (rad)
         radius (float): ロボットの半径
+        r_wheel (Wheel): 右ホイールオブジェクト
+        l_wheel (Wheel): 左ホイールオブジェクト
     """
 
     position: tuple[float, float]
     rotation: float
     radius: float
+
+    r_wheel: Wheel
+    l_wheel: Wheel
 
     _path: list[tuple[float, float]] = field(default_factory=list)
     _path_index: int = 0

@@ -9,12 +9,11 @@ dependencies = [
     "numpy>=2.3.3",
     "rpi-gpio>=0.7.1 ; sys_platform == 'linux'",
     "shapely>=2.1.2",
+    "typing-extensions>=4.15.0",
 ]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.13.1",
-]
+dev = ["ruff>=0.13.1"]
 
 [tool.pyright]
 reportUnknownMemberType = false
