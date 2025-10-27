@@ -19,6 +19,7 @@ class Wheel:
     pwm_pin: int
 
     _pwm: PWM
+    _run_break_on: bool = False
 
     def __post_init__(self):
         GPIO.setup(self.start_stop_pin, GPIO.OUT)
@@ -29,37 +30,17 @@ class Wheel:
         self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
         self._pwm.start(0)
 
+        GPIO.output(self.run_break_pin, GPIO.HIGH)
         GPIO.output(self.start_stop_pin, GPIO.HIGH)
 
-    def syncDrive(self, speed: float, duration: float):
-        """
-        指定された速度でホイールを駆動するメソッド (同期的)
-        Args:
-            speed (float): ホイールの速度 (-100 to 100)
-            duration (float): 駆動時間 (秒)
-        """
-        if speed == 0:
-            return
-        self._pwm.ChangeDutyCycle(abs(speed))
-        GPIO.output(self.direction_pin, speed > 0)
-        GPIO.output(self.start_stop_pin, GPIO.LOW)
-        time.sleep(duration)
+    def on(self):
         GPIO.output(self.start_stop_pin, GPIO.LOW)
 
-    async def drive(self, speed: float, duration: float):
-        """
-        指定された速度でホイールを駆動するメソッド (非同期的)
-        Args:
-            speed (float): ホイールの速度 (-100 to 100)
-            duration (float): 駆動時間 (秒)
-        """
-        if speed == 0:
-            return
-        self._pwm.ChangeDutyCycle(abs(speed))
-        GPIO.output(self.direction_pin, speed > 0)
-        GPIO.output(self.start_stop_pin, GPIO.LOW)
-        await asyncio.sleep(duration)
-        GPIO.output(self.start_stop_pin, GPIO.LOW)
+    def off(self):
+        GPIO.output(self.start_stop_pin, GPIO.HIGH)
+
+    def set_speed(self, speed: float):
+        pass
 
 
 @dataclass
@@ -70,11 +51,16 @@ class Robot(Visualizable):
         position (tuple[float, float]): ロボットの位置 (x, y)
         rotation (float): ロボットの向き (rad)
         radius (float): ロボットの半径
+        r_wheel (Wheel): 右ホイールオブジェクト
+        l_wheel (Wheel): 左ホイールオブジェクト
     """
 
     position: tuple[float, float]
     rotation: float
     radius: float
+
+    r_wheel: Wheel
+    l_wheel: Wheel
 
     _path: list[tuple[float, float]] = field(default_factory=list)
     _path_index: int = 0
