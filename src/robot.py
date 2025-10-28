@@ -1,74 +1,159 @@
-from dataclasses import dataclass
+import asyncio
+import time
+from dataclasses import dataclass, field
 
 import numpy as np
+from matplotlib.artist import Artist
+from matplotlib.axes import Axes
+from matplotlib.patches import Circle
+
+from gpio import GPIO, PWM
+from visualize import Visualizable
 
 
 @dataclass
-class Robot:
-    """ロボットの情報を管理するクラス"""
+class Wheel:
+    start_stop_pin: int
+    run_break_pin: int
+    direction_pin: int
+    pwm_pin: int
 
-    size: int  # ロボットのサイズ (diameter in mm)
+    _pwm: PWM
+    _run_break_on: bool = False
 
-    position: tuple[float, float]  # ロボットの位置 (x, y)
-    rotation: float  # ロボットの向き (degrees)
+    def __post_init__(self):
+        GPIO.setup(self.start_stop_pin, GPIO.OUT)
+        GPIO.setup(self.run_break_pin, GPIO.OUT)
+        GPIO.setup(self.direction_pin, GPIO.OUT)
+        GPIO.setup(self.pwm_pin, GPIO.OUT)
 
-    _MAX_STEERING_ANGLE = 45.0  # 最大操舵角度 (degrees)
+        self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
+        self._pwm.start(0)
 
-    _r_speed = 0.0  # 右車輪の速度
-    _l_speed = 0.0  # 左車輪の速度
+        GPIO.output(self.run_break_pin, GPIO.HIGH)
+        GPIO.output(self.start_stop_pin, GPIO.HIGH)
 
-    def pickup_box(self):
-        """ロボットが箱を拾う動作をする関数"""
+    def on(self):
+        GPIO.output(self.start_stop_pin, GPIO.LOW)
+
+    def off(self):
+        GPIO.output(self.start_stop_pin, GPIO.HIGH)
+
+    def set_speed(self, speed: float):
         pass
 
-    def drop_box(self):
-        """ロボットが箱を置く動作をする関数"""
-        pass
 
-    def read_ar_marker(self):
-        """ARマーカーを読み取り、プロパティを更新する関数"""
-        pass
+@dataclass
+class Robot(Visualizable):
+    """
+    ロボットの情報を管理するクラス
+    Attributes:
+        position (tuple[float, float]): ロボットの位置 (x, y)
+        rotation (float): ロボットの向き (rad)
+        radius (float): ロボットの半径
+        r_wheel (Wheel): 右ホイールオブジェクト
+        l_wheel (Wheel): 左ホイールオブジェクト
+    """
 
-    # こっから下適当に付けたやつなんで消してもいいです
-    destination: tuple[float, float] | None = None  # ロボットの目的地 (Nullable)
+    position: tuple[float, float]
+    rotation: float
+    radius: float
 
-    _rotation_speed: float = 15.0  # ロボットの回転速度 (degrees per tick)
-    _movement_speed: float = 100.0  # ロボットの移動速度 (mm per tick)
+    r_wheel: Wheel
+    l_wheel: Wheel
 
-    def tick(self):
-        """ロボットの状態を更新する関数"""
+    _path: list[tuple[float, float]] = field(default_factory=list)
+    _path_index: int = 0
 
-        if self.destination is None:
-            return  # 目的地が設定されていない場合は何もしない
+    def set_path(self, path: list[tuple[float, float]]) -> None:
+        """
+        ロボットの移動経路を設定するメソッド
 
-        dest_x, dest_y = self.destination
-        curr_x, curr_y = self.position
+        Args:
+            path (list[tuple[float, float]]): ロボットの移動経路
+        """
+        self._path = path
+        self._path_index = 0
 
-        # 目的地までの距離と角度を計算
-        delta_x = dest_x - curr_x
-        delta_y = dest_y - curr_y
-        distance = (delta_x**2 + delta_y**2) ** 0.5
-        target_angle = np.degrees(np.arctan2(delta_y, delta_x)) % 360
+    _speed: float = 500  # mm/s
+    _rotation_speed: float = np.radians(90)  # rad/s
 
-        # 現在の向きと目的地の角度の差を計算
-        angle_diff = (target_angle - self.rotation + 180) % 360 - 180
+    def update(self, dt: float) -> None:
+        """
+        ロボットの位置と向きを更新するメソッド
 
-        # 回転処理
-        if abs(angle_diff) > 1e-2:  # 小さな誤差を無視
-            rotation_step = np.sign(angle_diff) * min(
-                self._rotation_speed, abs(angle_diff)
+        Args:
+            dt (float): 経過時間 (秒)
+        """
+        if not self._path or self._path_index >= len(self._path):
+            return
+
+        cx, cy = self.position
+        tx, ty = self._path[self._path_index]
+        distance = np.hypot(tx - cx, ty - cy)
+        direction = np.arctan2(ty - cy, tx - cx)
+        if distance < 1e-2:
+            self.position = (tx, ty)
+            self._path_index += 1
+            return
+        # 向きを回転させる
+        angle_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
+        max_rotation = self._rotation_speed * dt
+        if abs(angle_diff) >= 1e-2:
+            rotation_amount = np.clip(angle_diff, -max_rotation, max_rotation)
+            self.rotation += rotation_amount
+            self.rotation %= 2 * np.pi
+            return
+        else:
+            self.rotation = direction
+        # 位置を移動させる
+        max_distance = self._speed * dt
+        move_distance = min(distance, max_distance)
+        new_x = cx + move_distance * np.cos(self.rotation)
+        new_y = cy + move_distance * np.sin(self.rotation)
+        self.position = (new_x, new_y)
+
+    def animate(self, ax: Axes) -> list[Artist]:
+        animated: list[Artist] = []
+
+        if self._path:
+            path_xs, path_ys = zip(*self._path)
+            path_line = ax.plot(
+                path_xs,
+                path_ys,
+                linestyle="--",
+                color="magenta",
+                linewidth=1,
             )
-            self.rotation = (self.rotation + rotation_step) % 360
-            return  # 回転中は移動しない
+            animated.extend(path_line)
 
-        # 移動処理
-        if distance > 1e-2:  # 小さな誤差を無視
-            movement_step = min(self._movement_speed, distance)
-            move_x = movement_step * np.cos(np.radians(self.rotation))
-            move_y = movement_step * np.sin(np.radians(self.rotation))
-            self.position = (curr_x + move_x, curr_y + move_y)
-
-            # 目的地に到達したかチェック
-            if movement_step >= distance:
-                self.position = self.destination
-                self.destination = None  # 目的地に到達したのでクリア
+        x, y = self.position
+        # ロボットの円
+        circle = Circle(
+            (x, y),
+            self.radius,
+            fill=True,
+            color="blue",
+        )
+        animated.append(ax.add_patch(circle))
+        # ロボットの向きを示す矢印
+        arrow_length = self.radius
+        arrow_dx = arrow_length * np.cos(self.rotation)
+        arrow_dy = arrow_length * np.sin(self.rotation)
+        arrow = ax.arrow(
+            x,
+            y,
+            arrow_dx,
+            arrow_dy,
+            width=5,
+            color="white",
+        )
+        animated.append(ax.add_patch(arrow))
+        # ロボットの中心点
+        center_dot = Circle(
+            (x, y),
+            self.radius * 0.1,
+            color="red",
+        )
+        animated.append(ax.add_patch(center_dot))
+        return animated

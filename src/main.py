@@ -1,22 +1,57 @@
+import numpy as np
+from matplotlib.axes import Axes
+from matplotlib.backend_bases import Event, MouseEvent
+
+from pathfinding import PathPlanner
 from robot import Robot
-from stage import Goal, Stage
+from stage import GoalArea, Stage, StartArea, Wall
+from visualize import visualize
 
 
 def main():
+    start_area = StartArea(position=(4000, 0), size=1000)
+    goals = [
+        GoalArea(position=(1500, 0), size=1000, goal_id=1),
+        GoalArea(position=(2500, 2000), size=1000, goal_id=2),
+        GoalArea(position=(0, 2000), size=1000, goal_id=3),
+    ]
+    wall = Wall(
+        x=1000,
+        obstacled_y=[(0, 1000), (2000, 3000)],
+    )
+    robot = Robot(
+        position=(
+            start_area.position[0] + start_area.size / 2,
+            start_area.position[1] + start_area.size / 2,
+        ),
+        rotation=np.radians(180),
+        radius=500 / 2,
+    )
     stage = Stage(
         x_size=5000,
         y_size=3000,
-        walls=[((800, 0), (800, 1000)), ((800, 2000), (800, 3000))],
-        goals=[
-            Goal(position=(1900, 0), size=(800, 800), id=1),
-            Goal(position=(3300, 2200), size=(800, 800), id=2),
-            Goal(position=(0, 2200), size=(800, 800), id=3),
-        ],
+        start_area=start_area,
+        wall=wall,
+        goals=goals,
+        ar_markers=[],
+        robot=robot,
     )
-    robot = Robot(position=(4750, 250), rotation=135.0, size=500)
+    path_planner = PathPlanner(stage)
 
-    stage.robot = robot  # ロボットをステージに配置
-    stage.preview_stage()
+    robot.set_path(path_planner.plan_path(robot.position, goals[2].center))
+
+    def additional_plot(ax: Axes):
+        def on_click(event: Event):
+            if not isinstance(event, MouseEvent):
+                return
+            x, y = event.xdata, event.ydata
+            if x is None or y is None:
+                return
+            robot.set_path(path_planner.plan_path(robot.position, (x, y)))
+
+        ax.figure.canvas.mpl_connect("button_press_event", on_click)
+
+    visualize(frame_rate=30, additional_plot=additional_plot)
 
 
 if __name__ == "__main__":

@@ -1,167 +1,222 @@
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 
-import matplotlib.animation as animation
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.artist import Artist
+from matplotlib.axes import Axes
+from matplotlib.patches import Rectangle
+from matplotlib.transforms import Affine2D
 
 from robot import Robot
+from visualize import Visualizable
 
 
 @dataclass
-class Goal:
-    """ゴールの情報を管理するクラス"""
+class Wall(Visualizable):
+    """
+    壁の情報を管理するクラス
+    Attributes:
+        x (float): 壁のx座標 (左端)
+        obstacled_y (list[tuple[float, float]]): 障害物があるy座標の範囲のリスト [(start_y, end_y), ...]
+    """
 
-    position: tuple[int, int]  # ゴールの位置(左下基準) (x, y)
-    size: tuple[int, int]  # ゴールのサイズ (x幅, y幅)
-    id: int  # ゴールのID
+    x: float
+    obstacled_y: list[tuple[float, float]]
+
+    def visualize(self, ax: Axes):
+        width = 50  # 壁の幅
+        for start_y, end_y in self.obstacled_y:
+            ax.add_patch(
+                Rectangle(
+                    (self.x - width / 2, start_y),
+                    width,
+                    end_y - start_y,
+                    color="brown",
+                )
+            )
 
 
 @dataclass
-class Stage:
-    """ステージの情報を管理するクラス"""
+class Area(Visualizable, metaclass=ABCMeta):
+    """
+    エリアの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): エリアの左下座標 (x, y)
+        size (int): エリアの一辺の長さ (mm)
+    """
 
-    x_size: int  # ステージのx方向サイズ (mm)
-    y_size: int  # ステージのy方向サイズ (mm)
-    walls: list[
-        tuple[tuple[int, int], tuple[int, int]]
-    ]  # 壁のリスト [((x1, y1), (x2, y2)), ...]
-    goals: list[Goal]  # ゴールのリスト
+    position: tuple[int, int]
+    size: int
 
-    robot: Robot | None = None  # ロボット (Nullable)
+    @property
+    def center(self) -> tuple[float, float]:
+        return (
+            self.position[0] + self.size / 2,
+            self.position[1] + self.size / 2,
+        )
 
-    def preview_stage(self):
-        """ステージのプレビューを表示する関数"""
+    @abstractmethod
+    def _get_color(self) -> str:
+        pass
 
-        # 描画の準備
-        ax = plt.axes()
+    def visualize(self, ax: Axes):
+        rect = Rectangle(
+            self.position,
+            self.size,
+            self.size,
+            edgecolor=self._get_color(),
+            fill=False,
+            linewidth=2,
+        )
+        rect.set_clip_path(rect)
+        ax.add_patch(rect)
 
-        # ステージの枠を描画
+
+@dataclass
+class GoalArea(Area):
+    """
+    ゴールの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): ゴールの左下座標 (x, y)
+        size (int): ゴールの一辺の長さ (mm)
+        goal_id (int): ゴールの識別子
+    """
+
+    goal_id: int
+
+    def _get_color(self) -> str:
+        return f"C{self.goal_id - 1}"
+
+    def visualize(self, ax: Axes):
+        super().visualize(ax)
+        ax.text(
+            self.position[0] + self.size / 2,
+            self.position[1] + self.size / 2,
+            f"Goal {self.goal_id}",
+            color="black",
+            fontsize=12,
+            ha="center",
+            va="center",
+        )
+
+
+@dataclass
+class StartArea(Area):
+    """
+    スタートエリアの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): スタートエリアの左下座標 (x, y)
+        size (int): スタートエリアの一辺の長さ (mm)
+        parcel_size (tuple[int, int]): 荷物のサイズ (幅, 高さ)
+    """
+
+    position: tuple[int, int]
+    size: int
+    parcel_size: tuple[int, int] = (175, 225)
+
+    def _get_color(self) -> str:
+        return "yellow"
+
+    def visualize(self, ax: Axes):
+        super().visualize(ax)
+        center = self.position[0] + self.size / 2, self.position[1] + self.size / 2
         ax.add_patch(
-            patches.Rectangle(
+            Rectangle(
+                (
+                    center[0] - self.parcel_size[0] / 2,
+                    center[1] - self.parcel_size[1] / 2,
+                ),
+                self.parcel_size[0],
+                self.parcel_size[1],
+                fill=False,
+                edgecolor="black",
+            )
+        )
+
+
+@dataclass
+class ARMarker(Visualizable):
+    """
+    ARマーカーの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): ARマーカーの座標 (x, y)
+        normal (tuple[int, int]): ARマーカーの法線ベクトル (nx, ny)
+        marker_id (int): ARマーカーの識別子
+    """
+
+    position: tuple[int, int]
+    normal: tuple[int, int]
+    marker_id: int
+
+    def visualize(self, ax: Axes):
+        marker_size = 800
+        ax.add_patch(
+            Rectangle(
+                (
+                    self.position[0] - marker_size / 2,
+                    self.position[1] - marker_size / 2,
+                ),
+                10,
+                marker_size,
+                facecolor="blanchedalmond",
+                edgecolor="black",
+                transform=Affine2D().rotate_deg_around(
+                    self.position[0],
+                    self.position[1],
+                    np.degrees(np.arctan2(self.normal[1], self.normal[0])),
+                ),
+            )
+        )
+        ax.text(
+            self.position[0],
+            self.position[1],
+            f"AR Marker {self.marker_id}",
+            color="black",
+            fontsize=12,
+            ha="center",
+            va="center",
+            transform=Affine2D().rotate_deg_around(
+                self.position[0],
+                self.position[1],
+                np.degrees(np.arctan2(self.normal[1], self.normal[0])),
+            ),
+        )
+
+
+@dataclass
+class Stage(Visualizable):
+    """
+    ステージの情報を管理するクラス
+    Attributes:
+        x_size (int): ステージのx方向サイズ (mm)
+        y_size (int): ステージのy方向サイズ (mm)
+        start_area (StartArea): スタートエリアの情報
+        walls (list[Wall]): 壁のリスト
+        goals (list[Goal]): ゴールのリスト
+        ar_markers (list[ARMarker]): ARマーカーのリスト
+        robot (Robot): ステージ上のロボット
+    """
+
+    x_size: int
+    y_size: int
+    start_area: StartArea
+    wall: Wall
+    goals: list[GoalArea]
+    ar_markers: list[ARMarker]
+    robot: Robot
+
+    def visualize(self, ax: Axes):
+        ax.set_title("Stage Visualization")
+        ax.axis("off")
+        ax.set_aspect("equal", adjustable="box")
+
+        # ステージの枠
+        ax.add_patch(
+            Rectangle(
                 (0, 0),
                 self.x_size,
                 self.y_size,
                 fill=None,
                 edgecolor="black",
-                zorder=10,
             )
         )
 
-        # ゴールを描画
-        for goal in self.goals:
-            px, py = goal.position
-            sx, sy = goal.size
-            ax.add_patch(patches.Rectangle((px, py), sx, sy, fill=True, color="green"))
-            ax.text(
-                px + sx // 2,
-                py + sy // 2,
-                f"Goal {goal.id}",
-                color="white",
-                ha="center",
-                va="center",
-            )
-
-        # 壁を描画
-        for wall in self.walls:
-            (x1, y1), (x2, y2) = wall
-            ax.plot(
-                [x1, x2],
-                [y1, y2],
-                color="brown",
-                linewidth=5,
-                solid_capstyle="butt",
-            )
-
-        robot_artists: list[Artist] = []
-
-        # ロボットの描画関数
-        def draw_robot():
-            if self.robot is None:
-                return
-
-            rx, ry = self.robot.position
-            rsize = self.robot.size
-            rrot = self.robot.rotation
-
-            # ロボットの円を描画
-            robot_circle = patches.Circle(
-                (rx, ry), rsize / 2, fill=True, color="blue", zorder=20
-            )
-            ax.add_patch(robot_circle)
-            robot_artists.append(robot_circle)
-
-            # ロボットの向きを示す線を描画
-            line_length = rsize / 2
-            line_dx = line_length * np.cos(np.radians(rrot))
-            line_dy = line_length * np.sin(np.radians(rrot))
-            direction_line = patches.FancyArrow(
-                rx,
-                ry,
-                line_dx,
-                line_dy,
-                width=5,
-                length_includes_head=True,
-                color="white",
-                zorder=25,
-            )
-            ax.add_patch(direction_line)
-            robot_artists.append(direction_line)
-
-            # ロボットの位置と向きをテキストで表示
-            info_text = ax.text(
-                rx,
-                ry - rsize / 2 - 20,
-                f"Pos: ({int(rx)}, {int(ry)})\nRot: {int(rrot)}°",
-                color="black",
-                ha="center",
-                va="top",
-                zorder=30,
-            )
-            robot_artists.append(info_text)
-
-        # ロボットを初回描画
-        draw_robot()
-
-        # アニメーション関数
-        def tick(frame):
-            if self.robot is None:
-                return []
-
-            # ロボットの状態を更新
-            self.robot.tick()
-
-            # 既存のロボット描画を削除
-            for artist in robot_artists:
-                artist.remove()
-            robot_artists.clear()
-
-            # ロボットを再描画
-            draw_robot()
-
-            return robot_artists
-
-        # アニメーションの設定
-        ani = animation.FuncAnimation(plt.gcf(), tick, frames=200, interval=100)  # noqa: F841
-
-        # クリックイベントの設定
-        def on_click(event):
-            if self.robot is None:
-                return
-            if event.inaxes != ax:
-                return
-            # クリック位置を目的地に設定
-            self.robot.destination = (event.xdata, event.ydata)
-
-        plt.gcf().canvas.mpl_connect("button_press_event", on_click)
-
-        # 見た目の調整
-        ax.set_aspect("equal", adjustable="box")
-        plt.title("Stage Preview")
-        plt.xlim(-500, self.x_size + 500)
-        plt.ylim(-500, self.y_size + 500)
-        plt.axis("off")
-        plt.grid()
-
-        plt.show()
