@@ -1,6 +1,7 @@
-import asyncio
+import threading
 import time
 from dataclasses import dataclass, field
+from typing import Callable
 
 import numpy as np
 from matplotlib.artist import Artist
@@ -17,8 +18,9 @@ class Wheel:
     run_break_pin: int
     direction_pin: int
     pwm_pin: int
+    dir_func: Callable[[float], bool]
 
-    _pwm: PWM
+    _pwm: PWM = field(init=False)
     _run_break_on: bool = False
 
     def __post_init__(self):
@@ -34,13 +36,25 @@ class Wheel:
         GPIO.output(self.start_stop_pin, GPIO.HIGH)
 
     def on(self):
+        """
+        ホイールを動作状態にするメソッド
+        """
         GPIO.output(self.start_stop_pin, GPIO.LOW)
 
     def off(self):
+        """
+        ホイールを停止状態にするメソッド
+        """
         GPIO.output(self.start_stop_pin, GPIO.HIGH)
 
     def set_speed(self, speed: float):
-        pass
+        """
+        ホイールの速度を設定するメソッド
+        Args:
+            speed (float): ホイールの速度 (-100.0 〜 100.0)
+        """
+        GPIO.output(self.direction_pin, self.dir_func(speed))
+        self._pwm.ChangeDutyCycle(abs(speed))
 
 
 @dataclass
@@ -49,7 +63,7 @@ class Robot(Visualizable):
     ロボットの情報を管理するクラス
     Attributes:
         position (tuple[float, float]): ロボットの位置 (x, y)
-        rotation (float): ロボットの向き (rad)
+        rotation (float): ロボットの向き (rad, -pi to pi)
         radius (float): ロボットの半径
         r_wheel (Wheel): 右ホイールオブジェクト
         l_wheel (Wheel): 左ホイールオブジェクト
@@ -62,56 +76,103 @@ class Robot(Visualizable):
     r_wheel: Wheel
     l_wheel: Wheel
 
+    _dc = 20      # PWM duty cycle percentage
+    _speed = 138  # Speed in mm/s
+
+    _drive_thread: threading.Thread | None = None
+    _cancel_event: threading.Event = field(default_factory=threading.Event)
+    _position_lock: threading.Lock = field(default_factory=threading.Lock)
+
     _path: list[tuple[float, float]] = field(default_factory=list)
-    _path_index: int = 0
 
-    def set_path(self, path: list[tuple[float, float]]) -> None:
+    def drive(self, path: list[tuple[float, float]]) -> None:
         """
-        ロボットの移動経路を設定するメソッド
-
+        ロボットを指定された経路に沿って移動させるメソッド
         Args:
-            path (list[tuple[float, float]]): ロボットの移動経路
+            path (list[tuple[float, float]]): 移動経路の座標リスト
         """
+        if self._drive_thread and self._drive_thread.is_alive():
+            self._cancel_event.set()
+            self._drive_thread.join()
+        self._drive_thread = threading.Thread(
+            target=lambda: self._drive(path), daemon=True
+        )
+        self._cancel_event.clear()
+        self._drive_thread.start()
+
+    def _drive(self, path: list[tuple[float, float]]) -> None:
         self._path = path
-        self._path_index = 0
 
-    _speed: float = 500  # mm/s
-    _rotation_speed: float = np.radians(90)  # rad/s
+        for tx, ty in self._path:
+            with self._position_lock:
+                cx, cy = self.position
+                current_rotation = self.rotation
+            if tx == cx and ty == cy:
+                continue
 
-    def update(self, dt: float) -> None:
+            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (2 * np.pi) - np.pi
+            if abs(angle_diff) > 1e-2:
+                self._turn(angle_diff)
+
+            position_diff = np.hypot(tx - cx, ty - cy)
+            if abs(position_diff) > 1e-2:
+                self._go_straight(position_diff)
+
+
+    def _go_straight(self, length: float):
         """
-        ロボットの位置と向きを更新するメソッド
-
+        ロボットを直進させるメソッド
         Args:
-            dt (float): 経過時間 (秒)
+            length (float): 直進距離 (mm)
         """
-        if not self._path or self._path_index >= len(self._path):
-            return
+        duration = length / self._speed
+        self.r_wheel.set_speed(self._dc)
+        self.l_wheel.set_speed(self._dc)
+        self.r_wheel.on()
+        self.l_wheel.on()
+        while duration > 0:
+            if self._cancel_event.is_set():
+                break
+            chunk = min(1/30, duration)
+            with self._position_lock:
+                nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
+                ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
+                self.position = (nx, ny)
+            time.sleep(chunk)
+            duration -= chunk
+        self.r_wheel.off()
+        self.l_wheel.off()
 
-        cx, cy = self.position
-        tx, ty = self._path[self._path_index]
-        distance = np.hypot(tx - cx, ty - cy)
-        direction = np.arctan2(ty - cy, tx - cx)
-        if distance < 1e-2:
-            self.position = (tx, ty)
-            self._path_index += 1
-            return
-        # 向きを回転させる
-        angle_diff = (direction - self.rotation + np.pi) % (2 * np.pi) - np.pi
-        max_rotation = self._rotation_speed * dt
-        if abs(angle_diff) >= 1e-2:
-            rotation_amount = np.clip(angle_diff, -max_rotation, max_rotation)
-            self.rotation += rotation_amount
-            self.rotation %= 2 * np.pi
-            return
+    def _turn(self, angle: float):
+        """
+        ロボットを回転させるメソッド
+        Args:
+            angle (float): 回転角度 (rad)
+        """
+        arc_length = self.radius * abs(angle)
+        duration = arc_length / self._speed
+        if angle > 0:
+            self.r_wheel.set_speed(-self._dc)
+            self.l_wheel.set_speed(self._dc)
         else:
-            self.rotation = direction
-        # 位置を移動させる
-        max_distance = self._speed * dt
-        move_distance = min(distance, max_distance)
-        new_x = cx + move_distance * np.cos(self.rotation)
-        new_y = cy + move_distance * np.sin(self.rotation)
-        self.position = (new_x, new_y)
+            self.r_wheel.set_speed(self._dc)
+            self.l_wheel.set_speed(-self._dc)
+        self.r_wheel.on()
+        self.l_wheel.on()
+        while duration > 0:
+            if self._cancel_event.is_set():
+                break
+            chunk = min(1/30, duration)
+            delta_angle = (chunk * self._speed) / self.radius
+            with self._position_lock:
+                if angle > 0:
+                    self.rotation += delta_angle
+                else:
+                    self.rotation -= delta_angle
+            time.sleep(chunk)
+            duration -= chunk
+        self.r_wheel.off()
+        self.l_wheel.off()
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
@@ -127,7 +188,9 @@ class Robot(Visualizable):
             )
             animated.extend(path_line)
 
-        x, y = self.position
+        with self._position_lock:
+            x, y = self.position
+            rotation = self.rotation
         # ロボットの円
         circle = Circle(
             (x, y),
@@ -138,8 +201,8 @@ class Robot(Visualizable):
         animated.append(ax.add_patch(circle))
         # ロボットの向きを示す矢印
         arrow_length = self.radius
-        arrow_dx = arrow_length * np.cos(self.rotation)
-        arrow_dy = arrow_length * np.sin(self.rotation)
+        arrow_dx = arrow_length * np.cos(rotation)
+        arrow_dy = arrow_length * np.sin(rotation)
         arrow = ax.arrow(
             x,
             y,

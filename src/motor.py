@@ -1,5 +1,7 @@
-import RPi.GPIO as GPIO
+# import RPi.GPIO as GPIO
 import time
+
+from gpio import GPIO
 
 # ==== ピン設定 ====
 # 左モーター用
