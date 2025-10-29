@@ -43,14 +43,6 @@ class Visualizable(metaclass=_InstanceTracker):
         """
         return []
 
-    def update(self, dt: float) -> None:
-        """
-        オブジェクトの状態を更新する抽象メソッド
-
-        Args:
-            dt (float): 経過時間 (秒)
-        """
-
 
 VISUALIZABLES: list[Visualizable] = []
 
@@ -75,7 +67,6 @@ def visualize(
     def update(_: int) -> list[Artist]:
         animated = []
         for visualizable in VISUALIZABLES:
-            visualizable.update(1 / frame_rate)
             animated.extend(visualizable.animate(ax))
         return animated
 

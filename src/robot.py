@@ -1,5 +1,7 @@
 import asyncio
+import threading
 from dataclasses import dataclass, field
+from typing import Callable
 
 import numpy as np
 from matplotlib.artist import Artist
@@ -16,6 +18,7 @@ class Wheel:
     run_break_pin: int
     direction_pin: int
     pwm_pin: int
+    dir_func: Callable[[float], bool]
 
     _pwm: PWM = field(init=False)
     _run_break_on: bool = False
@@ -50,7 +53,7 @@ class Wheel:
         Args:
             speed (float): ホイールの速度 (-100.0 〜 100.0)
         """
-        GPIO.output(self.direction_pin, speed < 0)
+        GPIO.output(self.direction_pin, self.dir_func(speed))
         self._pwm.ChangeDutyCycle(abs(speed))
 
 
@@ -60,7 +63,7 @@ class Robot(Visualizable):
     ロボットの情報を管理するクラス
     Attributes:
         position (tuple[float, float]): ロボットの位置 (x, y)
-        rotation (float): ロボットの向き (rad)
+        rotation (float): ロボットの向き (rad, -pi to pi)
         radius (float): ロボットの半径
         r_wheel (Wheel): 右ホイールオブジェクト
         l_wheel (Wheel): 左ホイールオブジェクト
@@ -74,9 +77,44 @@ class Robot(Visualizable):
     l_wheel: Wheel
 
     _dc = 20
-    _r_min = _dc * 50
-    _wheel_circumference = 100 * np.pi
-    _speed = _wheel_circumference * _r_min / 60
+    _speed = 138
+
+    _drive_thread: threading.Thread | None = None
+    _cancel_event = threading.Event()
+
+    _path: list[tuple[float, float]] = field(default_factory=list)
+
+    def drive(self, path: list[tuple[float, float]]) -> None:
+        """
+        ロボットを指定された経路に沿って移動させるメソッド
+        Args:
+            path (list[tuple[float, float]]): 移動経路の座標リスト
+        """
+        if self._drive_thread and self._drive_thread.is_alive():
+            self._cancel_event.set()
+            self._drive_thread.join()
+        self._drive_thread = threading.Thread(
+            target=lambda: asyncio.run(self._drive(path)), daemon=True
+        )
+        self._cancel_event.clear()
+        self._drive_thread.start()
+
+    async def _drive(self, path: list[tuple[float, float]]) -> None:
+        self._path = path
+
+        for tx, ty in self._path:
+            cx, cy = self.position
+            if tx == cx and ty == cy:
+                continue
+
+            angle_diff = np.arctan2(ty - cy, tx - cx) - self.rotation
+            if abs(angle_diff) > 1e-2:
+                await self._turn(angle_diff)
+
+            position_diff = np.hypot(tx - cx, ty - cy)
+            if abs(position_diff) > 1e-2:
+                await self._go_straight(position_diff)
+
 
     async def _go_straight(self, length: float):
         """
@@ -90,15 +128,15 @@ class Robot(Visualizable):
         self.r_wheel.on()
         self.l_wheel.on()
         # await asyncio.sleep(duration)
-        # TODO: mock
         while duration:
-            dt = min(0.5, duration)
-            await asyncio.sleep(dt)
-            self.position = (
-                self.position[0] + self._speed * dt * np.cos(self.rotation),
-                self.position[1] + self._speed * dt * np.sin(self.rotation),
-            )
-            duration -= dt
+            if self._cancel_event.is_set():
+                break
+            chunk = min(1/30, duration)
+            nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
+            ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
+            self.position = (nx, ny)
+            await asyncio.sleep(chunk)
+            duration -= chunk
         self.r_wheel.off()
         self.l_wheel.off()
 
@@ -120,53 +158,19 @@ class Robot(Visualizable):
         self.r_wheel.on()
         self.l_wheel.on()
         # await asyncio.sleep(duration)
-        # TODO: mock
         while duration:
-            dt = min(0.5, duration)
-            await asyncio.sleep(dt)
+            if self._cancel_event.is_set():
+                break
+            chunk = min(1/30, duration)
+            delta_angle = (chunk * self._speed) / self.radius
             if angle > 0:
-                self.rotation += (self._speed / self.radius) * dt
+                self.rotation += delta_angle
             else:
-                self.rotation -= (self._speed / self.radius) * dt
-            self.rotation %= 2 * np.pi
-            duration -= dt
+                self.rotation -= delta_angle
+            await asyncio.sleep(chunk)
+            duration -= chunk
         self.r_wheel.off()
         self.l_wheel.off()
-
-    _path: list[tuple[float, float]] = field(default_factory=list)
-
-    async def _drive(self, path: list[tuple[float, float]]) -> None:
-        """
-        ロボットを指定された経路に沿って移動させるメソッド
-        Args:
-            path (list[tuple[float, float]]): 移動経路の座標リスト
-        """
-        self._path = path
-
-        for tx, ty in self._path:
-            cx, cy = self.position
-            if tx == cx and ty == cy:
-                continue
-
-            angle_diff = np.arctan2(ty - cy, tx - cx) - self.rotation
-            if abs(angle_diff) > 1e-2:
-                await self._turn(angle_diff)
-
-            position_diff = np.hypot(tx - cx, ty - cy)
-            if abs(position_diff) > 1e-2:
-                await self._go_straight(position_diff)
-
-    _drive_task: asyncio.Task | None = None
-
-    def register_drive_task(self, path: list[tuple[float, float]]) -> None:
-        """
-        ロボットの移動タスクを登録するメソッド
-        Args:
-            path (list[tuple[float, float]]): 移動経路の座標リスト
-        """
-        if self._drive_task is not None and not self._drive_task.done():
-            self._drive_task.cancel()
-        self._drive_task = asyncio.create_task(self._drive(path))
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []

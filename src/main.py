@@ -1,4 +1,3 @@
-import asyncio
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import Event, MouseEvent
@@ -9,7 +8,7 @@ from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
 
 
-async def main():
+def main():
     start_area = StartArea(position=(4000, 0), size=1000)
     goals = [
         GoalArea(position=(1500, 0), size=1000, goal_id=1),
@@ -20,8 +19,20 @@ async def main():
         x=1000,
         obstacled_y=[(0, 1000), (2000, 3000)],
     )
-    r_wheel = Wheel(start_stop_pin=16, run_break_pin=20, direction_pin=21, pwm_pin=2)
-    l_wheel = Wheel(start_stop_pin=13, run_break_pin=19, direction_pin=26, pwm_pin=3)
+    r_wheel = Wheel(
+        start_stop_pin=16,
+        run_break_pin=20,
+        direction_pin=21,
+        pwm_pin=2,
+        dir_func=lambda speed: speed < 0,
+    )
+    l_wheel = Wheel(
+        start_stop_pin=13,
+        run_break_pin=19,
+        direction_pin=26,
+        pwm_pin=3,
+        dir_func=lambda speed: speed > 0,
+    )
     robot = Robot(
         position=start_area.center,
         rotation=np.radians(180),
@@ -38,7 +49,10 @@ async def main():
         ar_markers=[],
         robot=robot,
     )
+
     path_planner = PathPlanner(stage)
+
+    robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
     def additional_plot(ax: Axes):
         def on_click(event: Event):
@@ -47,11 +61,11 @@ async def main():
             x, y = event.xdata, event.ydata
             if x is None or y is None:
                 return
+            robot.drive(path_planner.plan_path(robot.position, (x, y)))
 
         ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
     visualize(frame_rate=30, additional_plot=additional_plot)
 
-
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
