@@ -1,5 +1,5 @@
-import asyncio
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -94,12 +94,12 @@ class Robot(Visualizable):
             self._cancel_event.set()
             self._drive_thread.join()
         self._drive_thread = threading.Thread(
-            target=lambda: asyncio.run(self._drive(path)), daemon=True
+            target=lambda: self._drive(path), daemon=True
         )
         self._cancel_event.clear()
         self._drive_thread.start()
 
-    async def _drive(self, path: list[tuple[float, float]]) -> None:
+    def _drive(self, path: list[tuple[float, float]]) -> None:
         self._path = path
 
         for tx, ty in self._path:
@@ -109,14 +109,14 @@ class Robot(Visualizable):
 
             angle_diff = np.arctan2(ty - cy, tx - cx) - self.rotation
             if abs(angle_diff) > 1e-2:
-                await self._turn(angle_diff)
+                self._turn(angle_diff)
 
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:
-                await self._go_straight(position_diff)
+                self._go_straight(position_diff)
 
 
-    async def _go_straight(self, length: float):
+    def _go_straight(self, length: float):
         """
         ロボットを直進させるメソッド
         Args:
@@ -127,7 +127,6 @@ class Robot(Visualizable):
         self.l_wheel.set_speed(self._dc)
         self.r_wheel.on()
         self.l_wheel.on()
-        # await asyncio.sleep(duration)
         while duration:
             if self._cancel_event.is_set():
                 break
@@ -135,12 +134,12 @@ class Robot(Visualizable):
             nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
             ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
             self.position = (nx, ny)
-            await asyncio.sleep(chunk)
+            time.sleep(chunk)
             duration -= chunk
         self.r_wheel.off()
         self.l_wheel.off()
 
-    async def _turn(self, angle: float):
+    def _turn(self, angle: float):
         """
         ロボットを回転させるメソッド
         Args:
@@ -157,7 +156,6 @@ class Robot(Visualizable):
             self.l_wheel.set_speed(-self._dc)
         self.r_wheel.on()
         self.l_wheel.on()
-        # await asyncio.sleep(duration)
         while duration:
             if self._cancel_event.is_set():
                 break
@@ -167,7 +165,7 @@ class Robot(Visualizable):
                 self.rotation += delta_angle
             else:
                 self.rotation -= delta_angle
-            await asyncio.sleep(chunk)
+            time.sleep(chunk)
             duration -= chunk
         self.r_wheel.off()
         self.l_wheel.off()
