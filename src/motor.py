@@ -5,14 +5,14 @@ from gpio import GPIO
 
 # ==== ピン設定 ====
 # 左モーター用
-LEFT_PWM = 12  # PWM信号出力ピン（GPIO12）
-LEFT_DIR = 12  # 方向制御ピン（GPIO5）
-LEFT_START = 9  # スタート/ストップ制御（GPIO6）
+LEFT_PWM = 3  # PWM信号出力ピン（GPIO12）
+LEFT_DIR = 26  # 方向制御ピン（GPIO5）
+LEFT_START = 13  # スタート/ストップ制御（GPIO6）
 
 # 右モーター用
-RIGHT_PWM = 13  # PWM信号出力ピン（GPIO13）
-RIGHT_DIR = 19  # 方向制御ピン（GPIO19）
-RIGHT_START = 26  # スタート/ストップ制御（GPIO26）
+RIGHT_PWM = 2  # PWM信号出力ピン（GPIO13）
+RIGHT_DIR = 21  # 方向制御ピン（GPIO19）
+RIGHT_START = 16  # スタート/ストップ制御（GPIO26）
 
 # ==== GPIO初期化 ====
 GPIO.setmode(GPIO.BCM)
