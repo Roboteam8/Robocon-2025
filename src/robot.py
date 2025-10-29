@@ -32,9 +32,6 @@ class Wheel:
         self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
         self._pwm.start(0)
 
-        GPIO.output(self.run_break_pin, GPIO.HIGH)
-        GPIO.output(self.start_stop_pin, GPIO.HIGH)
-
     def on(self):
         """
         ホイールを動作状態にするメソッド
