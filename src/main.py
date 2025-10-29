@@ -1,9 +1,11 @@
+import time
+
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import Event, MouseEvent
 
 from pathfinding import PathPlanner
-from robot import Robot, Wheel
+from robot import Arm, Hand, Robot, Shoulder, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
 
@@ -33,12 +35,27 @@ def main():
         pwm_pin=3,
         dir_func=lambda speed: speed > 0,
     )
+    arm = Arm(
+        shoulder=Shoulder(
+            r_open_pin=9,
+            r_close_pin=11,
+            l_open_pin=8,
+            l_close_pin=25,
+        ),
+        r_hand=Hand(
+            pin=18,
+            initial_angle=160,
+            grip_angle=120,
+        ),
+        l_hand=Hand(pin=17, initial_angle=0, grip_angle=40),
+    )
     robot = Robot(
         position=start_area.center,
         rotation=np.radians(180),
         radius=500 / 2,
         r_wheel=r_wheel,
         l_wheel=l_wheel,
+        arm=arm,
     )
     stage = Stage(
         x_size=5000,
@@ -52,7 +69,15 @@ def main():
 
     path_planner = PathPlanner(stage)
 
-    robot.drive(path_planner.plan_path(robot.position, goals[2].center))
+    # robot.drive(path_planner.plan_path(robot.position, goals[2].center))
+
+    robot.arm.open_shoulder()
+    robot.arm.grip_hand()
+    robot.arm.close_shoulder()
+    time.sleep(1)
+    robot.arm.open_shoulder()
+    robot.arm.release_hand()
+    robot.arm.close_shoulder()
 
     def additional_plot(ax: Axes):
         def on_click(event: Event):
@@ -61,11 +86,12 @@ def main():
             x, y = event.xdata, event.ydata
             if x is None or y is None:
                 return
-            robot.drive(path_planner.plan_path(robot.position, (x, y)))
+            # robot.drive(path_planner.plan_path(robot.position, (x, y)))
 
         ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
-    visualize(frame_rate=30, additional_plot=additional_plot)
+    # visualize(frame_rate=30, additional_plot=additional_plot)
+
 
 if __name__ == "__main__":
     main()

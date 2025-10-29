@@ -58,6 +58,102 @@ class Wheel:
 
 
 @dataclass
+class Shoulder:
+    r_open_pin: int
+    r_close_pin: int
+    l_open_pin: int
+    l_close_pin: int
+    freq = 416
+
+    _r_open_pwm: PWM = field(init=False)
+    _r_close_pwm: PWM = field(init=False)
+    _l_open_pwm: PWM = field(init=False)
+    _l_close_pwm: PWM = field(init=False)
+
+    def __post_init__(self):
+        GPIO.setup(self.r_open_pin, GPIO.OUT)
+        GPIO.setup(self.r_close_pin, GPIO.OUT)
+        GPIO.setup(self.l_open_pin, GPIO.OUT)
+        GPIO.setup(self.l_close_pin, GPIO.OUT)
+
+        self._r_open_pwm = GPIO.PWM(self.r_open_pin, self.freq)
+        self._r_close_pwm = GPIO.PWM(self.r_close_pin, self.freq)
+        self._l_open_pwm = GPIO.PWM(self.l_open_pin, self.freq)
+        self._l_close_pwm = GPIO.PWM(self.l_close_pin, self.freq)
+
+        self._r_open_pwm.start(0)
+        self._r_close_pwm.start(0)
+        self._l_open_pwm.start(0)
+        self._l_close_pwm.start(0)
+
+    def open_shoulder(self):
+        self._r_open_pwm.ChangeDutyCycle(50)
+        self._l_open_pwm.ChangeDutyCycle(50)
+        time.sleep((1 / self.freq) * 400)
+        self._r_open_pwm.ChangeDutyCycle(0)
+        self._l_open_pwm.ChangeDutyCycle(0)
+    
+    def close_shoulder(self):
+        self._r_close_pwm.ChangeDutyCycle(50)
+        self._l_close_pwm.ChangeDutyCycle(50)
+        time.sleep((1 / self.freq) * 400)
+        self._r_close_pwm.ChangeDutyCycle(0)
+        self._l_close_pwm.ChangeDutyCycle(0)
+
+
+@dataclass
+class Hand:
+    pin: int
+    initial_angle: float
+    grip_angle: float
+
+    _pwm: PWM = field(init=False)
+
+    def __post_init__(self):
+        GPIO.setup(self.pin, GPIO.OUT)
+        self._pwm = GPIO.PWM(self.pin, 50)  # 50Hz
+        self._pwm.start(0)
+        self._set_angle(self.initial_angle)
+
+    def _set_angle(self, angle: float):
+        """
+        PWMに送る角度を設定
+        angle: 0～180の範囲
+        """
+        duty = 2 + (angle / 18)  # SG90などの標準サーボ用
+        self._pwm.ChangeDutyCycle(duty)
+        time.sleep(0.5)  # サーボが動く時間を確保
+        self._pwm.ChangeDutyCycle(0)
+
+    def grip(self):
+        self._set_angle(self.grip_angle)
+
+    def release(self):
+        self._set_angle(self.initial_angle)
+
+
+@dataclass
+class Arm:
+    shoulder: Shoulder
+    r_hand: Hand
+    l_hand: Hand
+
+    def grip_hand(self):
+        self.r_hand.grip()
+        self.l_hand.grip()
+
+    def release_hand(self):
+        self.r_hand.release()
+        self.l_hand.release()
+
+    def open_shoulder(self):
+        self.shoulder.open_shoulder()
+    
+    def close_shoulder(self):
+        self.shoulder.close_shoulder()
+
+
+@dataclass
 class Robot(Visualizable):
     """
     ロボットの情報を管理するクラス
@@ -67,6 +163,7 @@ class Robot(Visualizable):
         radius (float): ロボットの半径
         r_wheel (Wheel): 右ホイールオブジェクト
         l_wheel (Wheel): 左ホイールオブジェクト
+        arm (Arm): アームオブジェクト
     """
 
     position: tuple[float, float]
@@ -76,7 +173,9 @@ class Robot(Visualizable):
     r_wheel: Wheel
     l_wheel: Wheel
 
-    _dc = 20      # PWM duty cycle percentage
+    arm: Arm
+
+    _dc = 20  # PWM duty cycle percentage
     _speed = 138  # Speed in mm/s
 
     _drive_thread: threading.Thread | None = None
@@ -110,14 +209,15 @@ class Robot(Visualizable):
             if tx == cx and ty == cy:
                 continue
 
-            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (2 * np.pi) - np.pi
+            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (
+                2 * np.pi
+            ) - np.pi
             if abs(angle_diff) > 1e-2:
                 self._turn(angle_diff)
 
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:
                 self._go_straight(position_diff)
-
 
     def _go_straight(self, length: float):
         """
@@ -133,7 +233,7 @@ class Robot(Visualizable):
         while duration > 0:
             if self._cancel_event.is_set():
                 break
-            chunk = min(1/30, duration)
+            chunk = min(1 / 30, duration)
             with self._position_lock:
                 nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
                 ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
@@ -162,7 +262,7 @@ class Robot(Visualizable):
         while duration > 0:
             if self._cancel_event.is_set():
                 break
-            chunk = min(1/30, duration)
+            chunk = min(1 / 30, duration)
             delta_angle = (chunk * self._speed) / self.radius
             with self._position_lock:
                 if angle > 0:

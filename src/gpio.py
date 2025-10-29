@@ -1,3 +1,4 @@
+import atexit
 import importlib.util
 
 try:
@@ -13,3 +14,5 @@ except ImportError:
     )
 
 GPIO.setmode(GPIO.BCM)
+
+atexit.register(lambda: GPIO.cleanup())
