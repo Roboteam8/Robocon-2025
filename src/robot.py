@@ -127,7 +127,7 @@ class Robot(Visualizable):
         self.l_wheel.set_speed(self._dc)
         self.r_wheel.on()
         self.l_wheel.on()
-        while duration:
+        while duration > 0:
             if self._cancel_event.is_set():
                 break
             chunk = min(1/30, duration)
