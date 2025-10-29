@@ -76,11 +76,11 @@ class Robot(Visualizable):
     r_wheel: Wheel
     l_wheel: Wheel
 
-    _dc = 20
-    _speed = 138
+    _dc = 20      # PWM duty cycle percentage
+    _speed = 138  # Speed in mm/s
 
     _drive_thread: threading.Thread | None = None
-    _cancel_event = threading.Event()
+    _cancel_event: threading.Event = field(default_factory=threading.Event)
 
     _path: list[tuple[float, float]] = field(default_factory=list)
 
@@ -107,7 +107,7 @@ class Robot(Visualizable):
             if tx == cx and ty == cy:
                 continue
 
-            angle_diff = np.arctan2(ty - cy, tx - cx) - self.rotation
+            angle_diff = (np.arctan2(ty - cy, tx - cx) - self.rotation + np.pi) % (2 * np.pi) - np.pi
             if abs(angle_diff) > 1e-2:
                 self._turn(angle_diff)
 
@@ -144,7 +144,6 @@ class Robot(Visualizable):
         ロボットを回転させるメソッド
         Args:
             angle (float): 回転角度 (rad)
-        Returns:
         """
         arc_length = self.radius * abs(angle)
         duration = arc_length / self._speed
