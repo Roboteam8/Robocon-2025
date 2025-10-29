@@ -81,6 +81,7 @@ class Robot(Visualizable):
 
     _drive_thread: threading.Thread | None = None
     _cancel_event: threading.Event = field(default_factory=threading.Event)
+    _position_lock: threading.Lock = field(default_factory=threading.Lock)
 
     _path: list[tuple[float, float]] = field(default_factory=list)
 
@@ -103,11 +104,13 @@ class Robot(Visualizable):
         self._path = path
 
         for tx, ty in self._path:
-            cx, cy = self.position
+            with self._position_lock:
+                cx, cy = self.position
+                current_rotation = self.rotation
             if tx == cx and ty == cy:
                 continue
 
-            angle_diff = (np.arctan2(ty - cy, tx - cx) - self.rotation + np.pi) % (2 * np.pi) - np.pi
+            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (2 * np.pi) - np.pi
             if abs(angle_diff) > 1e-2:
                 self._turn(angle_diff)
 
@@ -131,9 +134,10 @@ class Robot(Visualizable):
             if self._cancel_event.is_set():
                 break
             chunk = min(1/30, duration)
-            nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
-            ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
-            self.position = (nx, ny)
+            with self._position_lock:
+                nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
+                ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
+                self.position = (nx, ny)
             time.sleep(chunk)
             duration -= chunk
         self.r_wheel.off()
@@ -160,10 +164,11 @@ class Robot(Visualizable):
                 break
             chunk = min(1/30, duration)
             delta_angle = (chunk * self._speed) / self.radius
-            if angle > 0:
-                self.rotation += delta_angle
-            else:
-                self.rotation -= delta_angle
+            with self._position_lock:
+                if angle > 0:
+                    self.rotation += delta_angle
+                else:
+                    self.rotation -= delta_angle
             time.sleep(chunk)
             duration -= chunk
         self.r_wheel.off()
@@ -183,7 +188,9 @@ class Robot(Visualizable):
             )
             animated.extend(path_line)
 
-        x, y = self.position
+        with self._position_lock:
+            x, y = self.position
+            rotation = self.rotation
         # ロボットの円
         circle = Circle(
             (x, y),
@@ -194,8 +201,8 @@ class Robot(Visualizable):
         animated.append(ax.add_patch(circle))
         # ロボットの向きを示す矢印
         arrow_length = self.radius
-        arrow_dx = arrow_length * np.cos(self.rotation)
-        arrow_dy = arrow_length * np.sin(self.rotation)
+        arrow_dx = arrow_length * np.cos(rotation)
+        arrow_dy = arrow_length * np.sin(rotation)
         arrow = ax.arrow(
             x,
             y,
