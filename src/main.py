@@ -24,17 +24,17 @@ def main():
         run_break_pin=20,
         direction_pin=21,
         pwm_pin=2,
-        dir_func=lambda speed: speed < 0,
+        dir_func=lambda speed: speed > 0,
     )
     l_wheel = Wheel(
         start_stop_pin=13,
         run_break_pin=19,
         direction_pin=26,
         pwm_pin=3,
-        dir_func=lambda speed: speed > 0,
+        dir_func=lambda speed: speed < 0,
     )
     robot = Robot(
-        position=start_area.center,
+        position=(3000, 1500),
         rotation=np.radians(180),
         radius=500 / 2,
         r_wheel=r_wheel,
@@ -52,7 +52,7 @@ def main():
 
     path_planner = PathPlanner(stage)
 
-    robot.drive(path_planner.plan_path(robot.position, goals[2].center))
+    robot.drive(path_planner.plan_path(robot.position, (robot.position[0] + 500, robot.position[1] + 500)))
 
     def additional_plot(ax: Axes):
         def on_click(event: Event):
