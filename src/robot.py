@@ -1,153 +1,108 @@
+import concurrent.futures
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Literal
 
 import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
-from gpio import GPIO, PWM
+from gpio import GPIO, DigitalPin, PwmPin
 from visualize import Visualizable
 
 
-@dataclass
 class Wheel:
-    start_stop_pin: int
-    run_break_pin: int
-    direction_pin: int
-    pwm_pin: int
-    dir_func: Callable[[float], bool]
+    __DC: float = 50
 
-    _pwm: PWM = field(init=False)
-    _run_break_on: bool = False
+    __start_stop: DigitalPin
+    __run_break: DigitalPin
+    __direction: DigitalPin
+    __pwm: PwmPin
 
-    def __post_init__(self):
-        GPIO.setup(self.start_stop_pin, GPIO.OUT)
-        GPIO.setup(self.run_break_pin, GPIO.OUT)
-        GPIO.setup(self.direction_pin, GPIO.OUT)
-        GPIO.setup(self.pwm_pin, GPIO.OUT)
+    def __init__(
+        self, start_stop_pin: int, run_break_pin: int, direction_pin: int, pwm_pin: int
+    ):
+        self.__start_stop = DigitalPin(start_stop_pin, GPIO.OUT)
+        self.__run_break = DigitalPin(run_break_pin, GPIO.OUT)
+        self.__direction = DigitalPin(direction_pin, GPIO.OUT)
+        self.__pwm = PwmPin(pwm_pin)
 
-        self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
-        self._pwm.start(0)
-
-    def on(self):
-        """
-        ホイールを動作状態にするメソッド
-        """
-        GPIO.output(self.start_stop_pin, GPIO.LOW)
+    def on(self, direction: Literal[0, 1]):
+        self.__direction.set_state(direction)
+        self.__pwm.set_dc(self.__DC)
 
     def off(self):
-        """
-        ホイールを停止状態にするメソッド
-        """
-        GPIO.output(self.start_stop_pin, GPIO.HIGH)
-
-    def set_speed(self, speed: float):
-        """
-        ホイールの速度を設定するメソッド
-        Args:
-            speed (float): ホイールの速度 (-100.0 〜 100.0)
-        """
-        GPIO.output(self.direction_pin, self.dir_func(speed))
-        self._pwm.ChangeDutyCycle(abs(speed))
+        self.__pwm.set_dc(0)
 
 
-@dataclass
 class Shoulder:
-    r_open_pin: int
-    r_close_pin: int
-    l_open_pin: int
-    l_close_pin: int
-    freq = 416
+    __FREQENCY: int = 416
 
-    _r_open_pwm: PWM = field(init=False)
-    _r_close_pwm: PWM = field(init=False)
-    _l_open_pwm: PWM = field(init=False)
-    _l_close_pwm: PWM = field(init=False)
+    def __init__(self, open_pin: int, close_pin: int):
+        self.__open_pwm = PwmPin(open_pin, self.__FREQENCY)
+        self.__close_pwm = PwmPin(close_pin, self.__FREQENCY)
 
-    def __post_init__(self):
-        GPIO.setup(self.r_open_pin, GPIO.OUT)
-        GPIO.setup(self.r_close_pin, GPIO.OUT)
-        GPIO.setup(self.l_open_pin, GPIO.OUT)
-        GPIO.setup(self.l_close_pin, GPIO.OUT)
+    def open(self):
+        self.__open_pwm.set_dc(50)
+        time.sleep((1 / self.__FREQENCY) * 400)
+        self.__open_pwm.set_dc(0)
 
-        self._r_open_pwm = GPIO.PWM(self.r_open_pin, self.freq)
-        self._r_close_pwm = GPIO.PWM(self.r_close_pin, self.freq)
-        self._l_open_pwm = GPIO.PWM(self.l_open_pin, self.freq)
-        self._l_close_pwm = GPIO.PWM(self.l_close_pin, self.freq)
-
-        self._r_open_pwm.start(0)
-        self._r_close_pwm.start(0)
-        self._l_open_pwm.start(0)
-        self._l_close_pwm.start(0)
-
-    def open_shoulder(self):
-        self._r_open_pwm.ChangeDutyCycle(50)
-        self._l_open_pwm.ChangeDutyCycle(50)
-        time.sleep((1 / self.freq) * 400)
-        self._r_open_pwm.ChangeDutyCycle(0)
-        self._l_open_pwm.ChangeDutyCycle(0)
-
-    def close_shoulder(self):
-        self._r_close_pwm.ChangeDutyCycle(50)
-        self._l_close_pwm.ChangeDutyCycle(50)
-        time.sleep((1 / self.freq) * 400)
-        self._r_close_pwm.ChangeDutyCycle(0)
-        self._l_close_pwm.ChangeDutyCycle(0)
+    def close(self):
+        self.__close_pwm.set_dc(50)
+        time.sleep((1 / self.__FREQENCY) * 400)
+        self.__close_pwm.set_dc(0)
 
 
-@dataclass
 class Hand:
-    pin: int
-    initial_angle: float
-    grip_angle: float
+    __pwm: PwmPin
+    __release_angle: float
+    __grip_angle: float
 
-    _pwm: PWM = field(init=False)
+    def __init__(self, pin_num: int, release_angle: float, grip_angle: float) -> None:
+        self.__pwm = PwmPin(pin_num, freqency=50)
+        self.__set_angle(release_angle)
+        self.__release_angle = release_angle
+        self.__grip_angle = grip_angle
 
-    def __post_init__(self):
-        GPIO.setup(self.pin, GPIO.OUT)
-        self._pwm = GPIO.PWM(self.pin, 50)  # 50Hz
-        self._pwm.start(0)
-        self._set_angle(self.initial_angle)
-
-    def _set_angle(self, angle: float):
-        """
-        PWMに送る角度を設定
-        angle: 0～180の範囲
-        """
-        duty = 2 + (angle / 18)  # SG90などの標準サーボ用
-        self._pwm.ChangeDutyCycle(duty)
-        time.sleep(0.5)  # サーボが動く時間を確保
-        self._pwm.ChangeDutyCycle(0)
-
-    def grip(self):
-        self._set_angle(self.grip_angle)
+    def __set_angle(self, angle: float):
+        self.__pwm.set_dc(2 + (angle / 18))
+        time.sleep(0.5)
+        self.__pwm.set_dc(0)
 
     def release(self):
-        self._set_angle(self.initial_angle)
+        self.__set_angle(self.__release_angle)
 
+    def grip(self):
+        self.__set_angle(self.__grip_angle)
 
 @dataclass
 class Arm:
-    shoulder: Shoulder
+    r_shoulder: Shoulder
+    l_shoulder: Shoulder
     r_hand: Hand
     l_hand: Hand
 
-    def grip_hand(self):
-        self.r_hand.grip()
-        self.l_hand.grip()
+    def open_shoulders(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            executor.submit(self.r_shoulder.open)
+            executor.submit(self.l_shoulder.open)
 
-    def release_hand(self):
-        self.r_hand.release()
-        self.l_hand.release()
+    def close_shoulders(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            executor.submit(self.r_shoulder.close)
+            executor.submit(self.l_shoulder.close)
 
-    def open_shoulder(self):
-        self.shoulder.open_shoulder()
+    def release_hands(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            executor.submit(self.r_hand.release)
+            executor.submit(self.l_hand.release)
 
-    def close_shoulder(self):
-        self.shoulder.close_shoulder()
+    def grip_hands(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            executor.submit(self.r_hand.grip)
+            executor.submit(self.l_hand.grip)
 
 
 @dataclass
@@ -173,7 +128,7 @@ class Robot(Visualizable):
 
     _dc = 50
     _angle_per_sec = np.radians(360 / 5)
-    _spd_per_sec = (138 / 3) * 10  # mm/s
+    _spd_per_sec = (138 / 3) * 10
 
     _drive_thread: threading.Thread | None = None
     _cancel_event: threading.Event = field(default_factory=threading.Event)
@@ -223,17 +178,19 @@ class Robot(Visualizable):
             length (float): 直進距離 (mm)
         """
         duration = length / self._spd_per_sec
-        self.r_wheel.set_speed(self._dc)
-        self.l_wheel.set_speed(self._dc)
-        self.r_wheel.on()
-        self.l_wheel.on()
+        self.r_wheel.on(1)
+        self.l_wheel.on(0)
         while duration > 0:
             if self._cancel_event.is_set():
                 break
             chunk = min(1 / 30, duration)
             with self._position_lock:
-                nx = self.position[0] + chunk * self._spd_per_sec * np.cos(self.rotation)
-                ny = self.position[1] + chunk * self._spd_per_sec * np.sin(self.rotation)
+                nx = self.position[0] + chunk * self._spd_per_sec * np.cos(
+                    self.rotation
+                )
+                ny = self.position[1] + chunk * self._spd_per_sec * np.sin(
+                    self.rotation
+                )
                 self.position = (nx, ny)
             time.sleep(chunk)
             duration -= chunk
@@ -248,13 +205,11 @@ class Robot(Visualizable):
         """
         duration = abs(angle) / self._angle_per_sec
         if angle > 0:
-            self.r_wheel.set_speed(-self._dc)
-            self.l_wheel.set_speed(self._dc)
+            self.r_wheel.on(0)
+            self.l_wheel.on(1)
         else:
-            self.r_wheel.set_speed(self._dc)
-            self.l_wheel.set_speed(-self._dc)
-        self.r_wheel.on()
-        self.l_wheel.on()
+            self.r_wheel.on(1)
+            self.l_wheel.on(0)
         while duration > 0:
             if self._cancel_event.is_set():
                 break

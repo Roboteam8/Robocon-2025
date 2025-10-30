@@ -25,42 +25,28 @@ def main():
         run_break_pin=20,
         direction_pin=21,
         pwm_pin=2,
-        dir_func=lambda speed: speed > 0,
     )
     l_wheel = Wheel(
         start_stop_pin=13,
         run_break_pin=19,
         direction_pin=26,
         pwm_pin=3,
-        dir_func=lambda speed: speed < 0,
     )
     arm = Arm(
-        shoulder=Shoulder(
-            r_open_pin=9,
-            r_close_pin=11,
-            l_open_pin=8,
-            l_close_pin=25,
+        r_shoulder=Shoulder(
+            open_pin=9,
+            close_pin=11,
+        ),
+        l_shoulder=Shoulder(
+            open_pin=8,
+            close_pin=25,
         ),
         r_hand=Hand(
-            pin=18,
-            initial_angle=160,
+            pin_num=18,
+            release_angle=160,
             grip_angle=120,
         ),
-        l_hand=Hand(pin=17, initial_angle=0, grip_angle=40),
-    )
-    arm = Arm(
-        shoulder=Shoulder(
-            r_open_pin=9,
-            r_close_pin=11,
-            l_open_pin=8,
-            l_close_pin=25,
-        ),
-        r_hand=Hand(
-            pin=18,
-            initial_angle=160,
-            grip_angle=120,
-        ),
-        l_hand=Hand(pin=17, initial_angle=0, grip_angle=40),
+        l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
         position=(3000, 1500),
@@ -84,13 +70,13 @@ def main():
 
     # robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
-    robot.arm.open_shoulder()
-    robot.arm.grip_hand()
-    robot.arm.close_shoulder()
+    robot.arm.open_shoulders()
+    robot.arm.grip_hands()
+    robot.arm.close_shoulders()
     time.sleep(1)
-    robot.arm.open_shoulder()
-    robot.arm.release_hand()
-    robot.arm.close_shoulder()
+    robot.arm.open_shoulders()
+    robot.arm.release_hands()
+    robot.arm.close_shoulders()
 
     def additional_plot(ax: Axes):
         def on_click(event: Event):
