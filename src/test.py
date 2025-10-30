@@ -29,7 +29,7 @@ def test_robot_arm(robot: Robot):
 
 def test_robot_pathfollowing(robot: Robot, planner: PathPlanner):
     start = robot.position
-    end = (4000, 1500)
+    end = (start[0] + 50, start[1] + 50)
     path = planner.plan_path(start, end)
     print(f"Planned path from {start} to {end}: {path}")
     robot.drive(path)

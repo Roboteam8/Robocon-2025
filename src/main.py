@@ -1,8 +1,7 @@
 import numpy as np
-from matplotlib.axes import Axes
-from matplotlib.backend_bases import Event, MouseEvent
 
 import test
+from pathfinding import PathPlanner
 from robot import Arm, Hand, Robot, Shoulder, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 
@@ -63,23 +62,28 @@ def main():
         ar_markers=[],
         robot=robot,
     )
+    path_planner = PathPlanner(stage)
 
-    # path_planner = PathPlanner(stage)
-
+    test.test_robot_pathfollowing(robot, path_planner)
     # robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
-    test.test_robot_arm(robot)
+    # thread = threading.Thread(target=functools.partial(test.test_robot_pathfollowing, robot, path_planner), daemon=True)
+    # thread.start()
+    # visualize(frame_rate=30)
+    # thread.join()
 
-    def additional_plot(ax: Axes):
-        def on_click(event: Event):
-            if not isinstance(event, MouseEvent):
-                return
-            x, y = event.xdata, event.ydata
-            if x is None or y is None:
-                return
-            # robot.drive(path_planner.plan_path(robot.position, (x, y)))
+    # test.test_robot_arm(robot)
 
-        ax.figure.canvas.mpl_connect("button_press_event", on_click)
+    # def additional_plot(ax: Axes):
+    #     def on_click(event: Event):
+    #         if not isinstance(event, MouseEvent):
+    #             return
+    #         x, y = event.xdata, event.ydata
+    #         if x is None or y is None:
+    #             return
+    #         # robot.drive(path_planner.plan_path(robot.position, (x, y)))
+
+    #     ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
     # visualize(frame_rate=30, additional_plot=additional_plot)
 

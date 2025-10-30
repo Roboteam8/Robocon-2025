@@ -29,6 +29,9 @@ class Wheel:
         self.__direction = DigitalPin(direction_pin, GPIO.OUT)
         self.__pwm = PwmPin(pwm_pin)
 
+        self.__start_stop.set_state(GPIO.LOW)
+        self.__run_break.set_state(GPIO.LOW)
+
     def on(self, direction: Literal[0, 1]):
         self.__direction.set_state(direction)
         self.__pwm.set_dc(self.__DC)
@@ -177,8 +180,8 @@ class Robot(Visualizable):
             length (float): 直進距離 (mm)
         """
         duration = length / self.__SPEED
-        self.r_wheel.on(1)
-        self.l_wheel.on(0)
+        self.r_wheel.on(GPIO.HIGH)
+        self.l_wheel.on(GPIO.LOW)
         while duration > 0:
             if self.__cancel_event.is_set():
                 break
@@ -204,11 +207,11 @@ class Robot(Visualizable):
         """
         duration = abs(angle) / self.__ANGLE_SPEED
         if angle > 0:
-            self.r_wheel.on(0)
-            self.l_wheel.on(1)
+            self.r_wheel.on(GPIO.LOW)
+            self.l_wheel.on(GPIO.HIGH)
         else:
-            self.r_wheel.on(1)
-            self.l_wheel.on(0)
+            self.r_wheel.on(GPIO.HIGH)
+            self.l_wheel.on(GPIO.LOW)
         while duration > 0:
             if self.__cancel_event.is_set():
                 break
