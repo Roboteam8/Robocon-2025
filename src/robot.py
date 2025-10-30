@@ -41,20 +41,20 @@ class Wheel:
 
 
 class Shoulder:
-    __FREQENCY: int = 416
+    __FREQUENCY: int = 416
 
     def __init__(self, open_pin: int, close_pin: int):
-        self.__open_pwm = PwmPin(open_pin, self.__FREQENCY)
-        self.__close_pwm = PwmPin(close_pin, self.__FREQENCY)
+        self.__open_pwm = PwmPin(open_pin, self.__FREQUENCY)
+        self.__close_pwm = PwmPin(close_pin, self.__FREQUENCY)
 
     def open(self):
         self.__open_pwm.set_dc(50)
-        time.sleep((1 / self.__FREQENCY) * 400)
+        time.sleep((1 / self.__FREQUENCY) * 400)
         self.__open_pwm.set_dc(0)
 
     def close(self):
         self.__close_pwm.set_dc(50)
-        time.sleep((1 / self.__FREQENCY) * 400)
+        time.sleep((1 / self.__FREQUENCY) * 400)
         self.__close_pwm.set_dc(0)
 
 
