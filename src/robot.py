@@ -1,60 +1,110 @@
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any, Callable, Literal
 
 import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
-from gpio import GPIO, PWM
+from gpio import GPIO, DigitalPin, PwmPin
 from visualize import Visualizable
 
 
-@dataclass
 class Wheel:
-    start_stop_pin: int
-    run_break_pin: int
-    direction_pin: int
-    pwm_pin: int
-    dir_func: Callable[[float], bool]
+    __DC: float = 50
 
-    _pwm: PWM = field(init=False)
-    _run_break_on: bool = False
+    __start_stop: DigitalPin
+    __run_break: DigitalPin
+    __direction: DigitalPin
+    __pwm: PwmPin
 
-    def __post_init__(self):
-        GPIO.setup(self.start_stop_pin, GPIO.OUT)
-        GPIO.setup(self.run_break_pin, GPIO.OUT)
-        GPIO.setup(self.direction_pin, GPIO.OUT)
-        GPIO.setup(self.pwm_pin, GPIO.OUT)
+    def __init__(
+        self, start_stop_pin: int, run_break_pin: int, direction_pin: int, pwm_pin: int
+    ):
+        self.__start_stop = DigitalPin(start_stop_pin, GPIO.OUT)
+        self.__run_break = DigitalPin(run_break_pin, GPIO.OUT)
+        self.__direction = DigitalPin(direction_pin, GPIO.OUT)
+        self.__pwm = PwmPin(pwm_pin)
 
-        self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
-        self._pwm.start(0)
+        self.__start_stop.set_state(GPIO.LOW)
+        self.__run_break.set_state(GPIO.LOW)
 
-        GPIO.output(self.run_break_pin, GPIO.HIGH)
-        GPIO.output(self.start_stop_pin, GPIO.HIGH)
-
-    def on(self):
-        """
-        ホイールを動作状態にするメソッド
-        """
-        GPIO.output(self.start_stop_pin, GPIO.LOW)
+    def on(self, direction: Literal[0, 1]):
+        self.__direction.set_state(direction)
+        self.__pwm.set_dc(self.__DC)
 
     def off(self):
-        """
-        ホイールを停止状態にするメソッド
-        """
-        GPIO.output(self.start_stop_pin, GPIO.HIGH)
+        self.__pwm.set_dc(0)
 
-    def set_speed(self, speed: float):
-        """
-        ホイールの速度を設定するメソッド
-        Args:
-            speed (float): ホイールの速度 (-100.0 〜 100.0)
-        """
-        GPIO.output(self.direction_pin, self.dir_func(speed))
-        self._pwm.ChangeDutyCycle(abs(speed))
+
+class Shoulder:
+    __FREQUENCY: int = 416
+
+    def __init__(self, open_pin: int, close_pin: int):
+        self.__open_pwm = PwmPin(open_pin, self.__FREQUENCY)
+        self.__close_pwm = PwmPin(close_pin, self.__FREQUENCY)
+
+    def open(self):
+        self.__open_pwm.set_dc(50)
+        time.sleep((1 / self.__FREQUENCY) * 400)
+        self.__open_pwm.set_dc(0)
+
+    def close(self):
+        self.__close_pwm.set_dc(50)
+        time.sleep((1 / self.__FREQUENCY) * 400)
+        self.__close_pwm.set_dc(0)
+
+
+class Hand:
+    __pwm: PwmPin
+    __release_angle: float
+    __grip_angle: float
+
+    def __init__(self, pin_num: int, release_angle: float, grip_angle: float) -> None:
+        self.__pwm = PwmPin(pin_num, frequency=50)
+        self.__set_angle(release_angle)
+        self.__release_angle = release_angle
+        self.__grip_angle = grip_angle
+
+    def __set_angle(self, angle: float):
+        self.__pwm.set_dc(2 + (angle / 18))
+        time.sleep(0.5)
+        self.__pwm.set_dc(0)
+
+    def release(self):
+        self.__set_angle(self.__release_angle)
+
+    def grip(self):
+        self.__set_angle(self.__grip_angle)
+
+
+@dataclass
+class Arm:
+    r_shoulder: Shoulder
+    l_shoulder: Shoulder
+    r_hand: Hand
+    l_hand: Hand
+
+    def __run_all(self, *func: Callable[[], Any]):
+        threads = [threading.Thread(target=f) for f in func]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    def open_shoulders(self):
+        self.__run_all(self.r_shoulder.open, self.l_shoulder.open)
+
+    def close_shoulders(self):
+        self.__run_all(self.r_shoulder.close, self.l_shoulder.close)
+
+    def release_hands(self):
+        self.__run_all(self.r_hand.release, self.l_hand.release)
+
+    def grip_hands(self):
+        self.__run_all(self.r_hand.grip, self.l_hand.grip)
 
 
 @dataclass
@@ -67,6 +117,7 @@ class Robot(Visualizable):
         radius (float): ロボットの半径
         r_wheel (Wheel): 右ホイールオブジェクト
         l_wheel (Wheel): 左ホイールオブジェクト
+        arm (Arm): アームオブジェクト
     """
 
     position: tuple[float, float]
@@ -75,15 +126,16 @@ class Robot(Visualizable):
 
     r_wheel: Wheel
     l_wheel: Wheel
+    arm: Arm
 
-    _dc = 20      # PWM duty cycle percentage
-    _speed = 138  # Speed in mm/s
+    __ANGLE_SPEED = np.radians(360 / 5)
+    __SPEED = (138 / 3) * 10
 
-    _drive_thread: threading.Thread | None = None
-    _cancel_event: threading.Event = field(default_factory=threading.Event)
-    _position_lock: threading.Lock = field(default_factory=threading.Lock)
+    __drive_thread: threading.Thread | None = field(init=False, default=None)
+    __cancel_event: threading.Event = field(init=False, default_factory=threading.Event)
+    __position_lock: threading.Lock = field(init=False, default_factory=threading.Lock)
 
-    _path: list[tuple[float, float]] = field(default_factory=list)
+    __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
     def drive(self, path: list[tuple[float, float]]) -> None:
         """
@@ -91,80 +143,76 @@ class Robot(Visualizable):
         Args:
             path (list[tuple[float, float]]): 移動経路の座標リスト
         """
-        if self._drive_thread and self._drive_thread.is_alive():
-            self._cancel_event.set()
-            self._drive_thread.join()
-        self._drive_thread = threading.Thread(
-            target=lambda: self._drive(path), daemon=True
+        if self.__drive_thread and self.__drive_thread.is_alive():
+            self.__cancel_event.set()
+            self.__drive_thread.join()
+        self.__drive_thread = threading.Thread(
+            target=lambda: self.__drive(path), daemon=True
         )
-        self._cancel_event.clear()
-        self._drive_thread.start()
+        self.__cancel_event.clear()
+        self.__drive_thread.start()
 
-    def _drive(self, path: list[tuple[float, float]]) -> None:
-        self._path = path
+    def __drive(self, path: list[tuple[float, float]]) -> None:
+        self.__path = path
 
-        for tx, ty in self._path:
-            with self._position_lock:
+        for tx, ty in self.__path:
+            with self.__position_lock:
                 cx, cy = self.position
                 current_rotation = self.rotation
             if tx == cx and ty == cy:
                 continue
 
-            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (2 * np.pi) - np.pi
+            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (
+                2 * np.pi
+            ) - np.pi
             if abs(angle_diff) > 1e-2:
-                self._turn(angle_diff)
+                self.__turn(angle_diff)
 
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:
-                self._go_straight(position_diff)
+                self.__go_straight(position_diff)
 
-
-    def _go_straight(self, length: float):
+    def __go_straight(self, length: float):
         """
         ロボットを直進させるメソッド
         Args:
             length (float): 直進距離 (mm)
         """
-        duration = length / self._speed
-        self.r_wheel.set_speed(self._dc)
-        self.l_wheel.set_speed(self._dc)
-        self.r_wheel.on()
-        self.l_wheel.on()
+        duration = length / self.__SPEED
+        self.r_wheel.on(GPIO.HIGH)
+        self.l_wheel.on(GPIO.LOW)
         while duration > 0:
-            if self._cancel_event.is_set():
+            if self.__cancel_event.is_set():
                 break
-            chunk = min(1/30, duration)
-            with self._position_lock:
-                nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
-                ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
+            chunk = min(1 / 30, duration)
+            with self.__position_lock:
+                nx = self.position[0] + chunk * self.__SPEED * np.cos(self.rotation)
+                ny = self.position[1] + chunk * self.__SPEED * np.sin(self.rotation)
                 self.position = (nx, ny)
             time.sleep(chunk)
             duration -= chunk
         self.r_wheel.off()
         self.l_wheel.off()
 
-    def _turn(self, angle: float):
+    def __turn(self, angle: float):
         """
         ロボットを回転させるメソッド
         Args:
             angle (float): 回転角度 (rad)
         """
-        arc_length = self.radius * abs(angle)
-        duration = arc_length / self._speed
+        duration = abs(angle) / self.__ANGLE_SPEED
         if angle > 0:
-            self.r_wheel.set_speed(-self._dc)
-            self.l_wheel.set_speed(self._dc)
+            self.r_wheel.on(GPIO.LOW)
+            self.l_wheel.on(GPIO.HIGH)
         else:
-            self.r_wheel.set_speed(self._dc)
-            self.l_wheel.set_speed(-self._dc)
-        self.r_wheel.on()
-        self.l_wheel.on()
+            self.r_wheel.on(GPIO.HIGH)
+            self.l_wheel.on(GPIO.LOW)
         while duration > 0:
-            if self._cancel_event.is_set():
+            if self.__cancel_event.is_set():
                 break
-            chunk = min(1/30, duration)
-            delta_angle = (chunk * self._speed) / self.radius
-            with self._position_lock:
+            chunk = min(1 / 30, duration)
+            delta_angle = chunk * self.__ANGLE_SPEED
+            with self.__position_lock:
                 if angle > 0:
                     self.rotation += delta_angle
                 else:
@@ -177,8 +225,8 @@ class Robot(Visualizable):
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
 
-        if self._path:
-            path_xs, path_ys = zip(*self._path)
+        if self.__path:
+            path_xs, path_ys = zip(*self.__path)
             path_line = ax.plot(
                 path_xs,
                 path_ys,
@@ -188,7 +236,7 @@ class Robot(Visualizable):
             )
             animated.extend(path_line)
 
-        with self._position_lock:
+        with self.__position_lock:
             x, y = self.position
             rotation = self.rotation
         # ロボットの円
