@@ -1,8 +1,7 @@
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 from matplotlib.artist import Artist
@@ -80,6 +79,7 @@ class Hand:
     def grip(self):
         self.__set_angle(self.__grip_angle)
 
+
 @dataclass
 class Arm:
     r_shoulder: Shoulder
@@ -87,41 +87,24 @@ class Arm:
     r_hand: Hand
     l_hand: Hand
 
+    def __run_all(self, *func: Callable[[], Any]):
+        threads = [threading.Thread(target=f) for f in func]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
     def open_shoulders(self):
-        with ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(self.r_shoulder.open),
-                executor.submit(self.l_shoulder.open)
-            ]
-            for future in futures:
-                future.result()
+        self.__run_all(self.r_shoulder.open, self.l_shoulder.open)
 
     def close_shoulders(self):
-        with ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(self.r_shoulder.close),
-                executor.submit(self.l_shoulder.close)
-            ]
-            for future in futures:
-                future.result()
+        self.__run_all(self.r_shoulder.close, self.l_shoulder.close)
 
     def release_hands(self):
-        with ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(self.r_hand.release),
-                executor.submit(self.l_hand.release)
-            ]
-            for future in futures:
-                future.result()
+        self.__run_all(self.r_hand.release, self.l_hand.release)
 
     def grip_hands(self):
-        with ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(self.r_hand.grip),
-                executor.submit(self.l_hand.grip)
-            ]
-            for future in futures:
-                future.result()
+        self.__run_all(self.r_hand.grip, self.l_hand.grip)
 
 
 @dataclass
@@ -203,12 +186,8 @@ class Robot(Visualizable):
                 break
             chunk = min(1 / 30, duration)
             with self.__position_lock:
-                nx = self.position[0] + chunk * self.__SPEED * np.cos(
-                    self.rotation
-                )
-                ny = self.position[1] + chunk * self.__SPEED * np.sin(
-                    self.rotation
-                )
+                nx = self.position[0] + chunk * self.__SPEED * np.cos(self.rotation)
+                ny = self.position[1] + chunk * self.__SPEED * np.sin(self.rotation)
                 self.position = (nx, ny)
             time.sleep(chunk)
             duration -= chunk
