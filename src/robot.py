@@ -89,23 +89,39 @@ class Arm:
 
     def open_shoulders(self):
         with ThreadPoolExecutor() as executor:
-            executor.submit(self.r_shoulder.open)
-            executor.submit(self.l_shoulder.open)
+            futures = [
+                executor.submit(self.r_shoulder.open),
+                executor.submit(self.l_shoulder.open)
+            ]
+            for future in futures:
+                future.result()
 
     def close_shoulders(self):
         with ThreadPoolExecutor() as executor:
-            executor.submit(self.r_shoulder.close)
-            executor.submit(self.l_shoulder.close)
+            futures = [
+                executor.submit(self.r_shoulder.close),
+                executor.submit(self.l_shoulder.close)
+            ]
+            for future in futures:
+                future.result()
 
     def release_hands(self):
         with ThreadPoolExecutor() as executor:
-            executor.submit(self.r_hand.release)
-            executor.submit(self.l_hand.release)
+            futures = [
+                executor.submit(self.r_hand.release),
+                executor.submit(self.l_hand.release)
+            ]
+            for future in futures:
+                future.result()
 
     def grip_hands(self):
         with ThreadPoolExecutor() as executor:
-            executor.submit(self.r_hand.grip)
-            executor.submit(self.l_hand.grip)
+            futures = [
+                executor.submit(self.r_hand.grip),
+                executor.submit(self.l_hand.grip)
+            ]
+            for future in futures:
+                future.result()
 
 
 @dataclass
@@ -132,9 +148,9 @@ class Robot(Visualizable):
     __ANGLE_SPEED = np.radians(360 / 5)
     __SPEED = (138 / 3) * 10
 
-    __drive_thread: threading.Thread | None = field(init=False,default=None)
+    __drive_thread: threading.Thread | None = field(init=False, default=None)
     __cancel_event: threading.Event = field(init=False, default_factory=threading.Event)
-    __position_lock: threading.Lock = field(init= False, default_factory=threading.Lock)
+    __position_lock: threading.Lock = field(init=False, default_factory=threading.Lock)
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
