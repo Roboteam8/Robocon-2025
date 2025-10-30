@@ -1,6 +1,6 @@
-import concurrent.futures
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -85,22 +85,22 @@ class Arm:
     l_hand: Hand
 
     def open_shoulders(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor() as executor:
             executor.submit(self.r_shoulder.open)
             executor.submit(self.l_shoulder.open)
 
     def close_shoulders(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor() as executor:
             executor.submit(self.r_shoulder.close)
             executor.submit(self.l_shoulder.close)
 
     def release_hands(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor() as executor:
             executor.submit(self.r_hand.release)
             executor.submit(self.l_hand.release)
 
     def grip_hands(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor() as executor:
             executor.submit(self.r_hand.grip)
             executor.submit(self.l_hand.grip)
 

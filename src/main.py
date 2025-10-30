@@ -1,4 +1,3 @@
-
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import Event, MouseEvent
