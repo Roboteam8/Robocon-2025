@@ -64,7 +64,7 @@ class Hand:
     __grip_angle: float
 
     def __init__(self, pin_num: int, release_angle: float, grip_angle: float) -> None:
-        self.__pwm = PwmPin(pin_num, freqency=50)
+        self.__pwm = PwmPin(pin_num, frequency=50)
         self.__set_angle(release_angle)
         self.__release_angle = release_angle
         self.__grip_angle = grip_angle
