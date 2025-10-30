@@ -126,15 +126,14 @@ class Robot(Visualizable):
     l_wheel: Wheel
     arm: Arm
 
-    _dc = 50
-    _angle_per_sec = np.radians(360 / 5)
-    _spd_per_sec = (138 / 3) * 10
+    __ANGLE_SPEED = np.radians(360 / 5)
+    __SPEED = (138 / 3) * 10
 
-    _drive_thread: threading.Thread | None = None
-    _cancel_event: threading.Event = field(default_factory=threading.Event)
-    _position_lock: threading.Lock = field(default_factory=threading.Lock)
+    __drive_thread: threading.Thread | None = field(init=False,default=None)
+    __cancel_event: threading.Event = field(init=False, default_factory=threading.Event)
+    __position_lock: threading.Lock = field(init= False, default_factory=threading.Lock)
 
-    _path: list[tuple[float, float]] = field(default_factory=list)
+    __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
     def drive(self, path: list[tuple[float, float]]) -> None:
         """
@@ -142,20 +141,20 @@ class Robot(Visualizable):
         Args:
             path (list[tuple[float, float]]): 移動経路の座標リスト
         """
-        if self._drive_thread and self._drive_thread.is_alive():
-            self._cancel_event.set()
-            self._drive_thread.join()
-        self._drive_thread = threading.Thread(
-            target=lambda: self._drive(path), daemon=True
+        if self.__drive_thread and self.__drive_thread.is_alive():
+            self.__cancel_event.set()
+            self.__drive_thread.join()
+        self.__drive_thread = threading.Thread(
+            target=lambda: self.__drive(path), daemon=True
         )
-        self._cancel_event.clear()
-        self._drive_thread.start()
+        self.__cancel_event.clear()
+        self.__drive_thread.start()
 
-    def _drive(self, path: list[tuple[float, float]]) -> None:
-        self._path = path
+    def __drive(self, path: list[tuple[float, float]]) -> None:
+        self.__path = path
 
-        for tx, ty in self._path:
-            with self._position_lock:
+        for tx, ty in self.__path:
+            with self.__position_lock:
                 cx, cy = self.position
                 current_rotation = self.rotation
             if tx == cx and ty == cy:
@@ -165,30 +164,30 @@ class Robot(Visualizable):
                 2 * np.pi
             ) - np.pi
             if abs(angle_diff) > 1e-2:
-                self._turn(angle_diff)
+                self.__turn(angle_diff)
 
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:
-                self._go_straight(position_diff)
+                self.__go_straight(position_diff)
 
-    def _go_straight(self, length: float):
+    def __go_straight(self, length: float):
         """
         ロボットを直進させるメソッド
         Args:
             length (float): 直進距離 (mm)
         """
-        duration = length / self._spd_per_sec
+        duration = length / self.__SPEED
         self.r_wheel.on(1)
         self.l_wheel.on(0)
         while duration > 0:
-            if self._cancel_event.is_set():
+            if self.__cancel_event.is_set():
                 break
             chunk = min(1 / 30, duration)
-            with self._position_lock:
-                nx = self.position[0] + chunk * self._spd_per_sec * np.cos(
+            with self.__position_lock:
+                nx = self.position[0] + chunk * self.__SPEED * np.cos(
                     self.rotation
                 )
-                ny = self.position[1] + chunk * self._spd_per_sec * np.sin(
+                ny = self.position[1] + chunk * self.__SPEED * np.sin(
                     self.rotation
                 )
                 self.position = (nx, ny)
@@ -197,13 +196,13 @@ class Robot(Visualizable):
         self.r_wheel.off()
         self.l_wheel.off()
 
-    def _turn(self, angle: float):
+    def __turn(self, angle: float):
         """
         ロボットを回転させるメソッド
         Args:
             angle (float): 回転角度 (rad)
         """
-        duration = abs(angle) / self._angle_per_sec
+        duration = abs(angle) / self.__ANGLE_SPEED
         if angle > 0:
             self.r_wheel.on(0)
             self.l_wheel.on(1)
@@ -211,11 +210,11 @@ class Robot(Visualizable):
             self.r_wheel.on(1)
             self.l_wheel.on(0)
         while duration > 0:
-            if self._cancel_event.is_set():
+            if self.__cancel_event.is_set():
                 break
             chunk = min(1 / 30, duration)
-            delta_angle = chunk * self._angle_per_sec
-            with self._position_lock:
+            delta_angle = chunk * self.__ANGLE_SPEED
+            with self.__position_lock:
                 if angle > 0:
                     self.rotation += delta_angle
                 else:
@@ -228,8 +227,8 @@ class Robot(Visualizable):
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
 
-        if self._path:
-            path_xs, path_ys = zip(*self._path)
+        if self.__path:
+            path_xs, path_ys = zip(*self.__path)
             path_line = ax.plot(
                 path_xs,
                 path_ys,
@@ -239,7 +238,7 @@ class Robot(Visualizable):
             )
             animated.extend(path_line)
 
-        with self._position_lock:
+        with self.__position_lock:
             x, y = self.position
             rotation = self.rotation
         # ロボットの円

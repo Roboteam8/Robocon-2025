@@ -18,12 +18,12 @@ class PathPlanner(Visualizable):
 
     shape: Polygon = Polygon()
 
-    _wall: Wall
-    _expansion_radius: float
+    __wall: Wall
+    __expansion_radius: float
 
     def __init__(self, stage: Stage, safe_margin: float = 10):
-        self._wall = stage.wall
-        self._expansion_radius = stage.robot.radius + safe_margin
+        self.__wall = stage.wall
+        self.__expansion_radius = stage.robot.radius + safe_margin
 
         outer_frame = LineString(
             [
@@ -40,7 +40,7 @@ class PathPlanner(Visualizable):
         ]
 
         buffered_obstacles = [
-            obstacle.buffer(self._expansion_radius)
+            obstacle.buffer(self.__expansion_radius)
             for obstacle in wall_shapes + [outer_frame]
         ]
         merged_obstacles = unary_union(buffered_obstacles)
@@ -61,17 +61,17 @@ class PathPlanner(Visualizable):
         Returns:
             list[tuple[float, float]]: 計画された経路の点のリスト
         """
-        sx, sy = self._nearest_free_point(start)
-        ex, ey = self._nearest_free_point(end)
+        sx, sy = self.__nearest_free_point(start)
+        ex, ey = self.__nearest_free_point(end)
 
         path = [(sx, sy)]
 
-        if min(sx, ex) < self._wall.x < max(sx, ex):
+        if min(sx, ex) < self.__wall.x < max(sx, ex):
             free_y_area: list[tuple[float, float]] = []
-            for w1, w2 in pairwise(self._wall.obstacled_y):
-                if w1[1] + self._expansion_radius < w2[0] - self._expansion_radius:
+            for w1, w2 in pairwise(self.__wall.obstacled_y):
+                if w1[1] + self.__expansion_radius < w2[0] - self.__expansion_radius:
                     free_y_area.append(
-                        (w1[1] + self._expansion_radius, w2[0] - self._expansion_radius)
+                        (w1[1] + self.__expansion_radius, w2[0] - self.__expansion_radius)
                     )
 
             free_y_mids = [(fs + fe) / 2 for fs, fe in free_y_area]
@@ -85,7 +85,7 @@ class PathPlanner(Visualizable):
         path.append((ex, ey))
         return path
 
-    def _nearest_free_point(self, point: tuple[float, float]) -> tuple[float, float]:
+    def __nearest_free_point(self, point: tuple[float, float]) -> tuple[float, float]:
         """
         指定した点から最も近い障害物のない点を取得するメソッド
 

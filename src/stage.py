@@ -55,7 +55,7 @@ class Area(Visualizable, metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def _get_color(self) -> str:
+    def __get_color(self) -> str:
         pass
 
     def visualize(self, ax: Axes):
@@ -63,7 +63,7 @@ class Area(Visualizable, metaclass=ABCMeta):
             self.position,
             self.size,
             self.size,
-            edgecolor=self._get_color(),
+            edgecolor=self.__get_color(),
             fill=False,
             linewidth=2,
         )
@@ -83,7 +83,7 @@ class GoalArea(Area):
 
     goal_id: int
 
-    def _get_color(self) -> str:
+    def __get_color(self) -> str:
         return f"C{self.goal_id - 1}"
 
     def visualize(self, ax: Axes):
@@ -113,7 +113,7 @@ class StartArea(Area):
     size: int
     parcel_size: tuple[int, int] = (175, 225)
 
-    def _get_color(self) -> str:
+    def __get_color(self) -> str:
         return "yellow"
 
     def visualize(self, ax: Axes):
@@ -219,4 +219,3 @@ class Stage(Visualizable):
                 edgecolor="black",
             )
         )
-
