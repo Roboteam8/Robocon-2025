@@ -1,10 +1,9 @@
-import time
 
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backend_bases import Event, MouseEvent
 
-from pathfinding import PathPlanner
+import test
 from robot import Arm, Hand, Robot, Shoulder, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 
@@ -66,17 +65,11 @@ def main():
         robot=robot,
     )
 
-    path_planner = PathPlanner(stage)
+    # path_planner = PathPlanner(stage)
 
     # robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
-    robot.arm.open_shoulders()
-    robot.arm.grip_hands()
-    robot.arm.close_shoulders()
-    time.sleep(1)
-    robot.arm.open_shoulders()
-    robot.arm.release_hands()
-    robot.arm.close_shoulders()
+    test.test_robot_arm(robot)
 
     def additional_plot(ax: Axes):
         def on_click(event: Event):
