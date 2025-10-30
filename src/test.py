@@ -14,7 +14,7 @@ def test_robot_arm(robot: Robot):
     robot.arm.close_shoulders()
     print("Shoulders closed")
     print("Pickup sequence complete")
-    time.sleep(1)
+    time.sleep(2)
     robot.arm.open_shoulders()
     print("Shoulders opened")
     time.sleep(0.2)
@@ -23,6 +23,7 @@ def test_robot_arm(robot: Robot):
     time.sleep(0.2)
     robot.arm.close_shoulders()
     print("Shoulders closed")
+    time.sleep(2)
     print("Release sequence complete")
 
 
