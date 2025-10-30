@@ -27,14 +27,14 @@ class DigitalPin:
 @dataclass
 class PwmPin:
     pin_num: int
-    freqency: int = 1000
+    frequency: int = 1000
     initial_dc: float = 0
 
     __pwm: PWM = field(init=False)
 
     def __post_init__(self):
         GPIO.setup(self.pin_num, GPIO.OUT)
-        self.__pwm = GPIO.PWM(self.pin_num, self.freqency)
+        self.__pwm = GPIO.PWM(self.pin_num, self.frequency)
         self.__pwm.start(self.initial_dc)
 
     def __del__(self):
