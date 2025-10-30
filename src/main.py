@@ -7,7 +7,6 @@ from matplotlib.backend_bases import Event, MouseEvent
 from pathfinding import PathPlanner
 from robot import Arm, Hand, Robot, Shoulder, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
-from visualize import visualize
 
 
 def main():
@@ -26,14 +25,28 @@ def main():
         run_break_pin=20,
         direction_pin=21,
         pwm_pin=2,
-        dir_func=lambda speed: speed < 0,
+        dir_func=lambda speed: speed > 0,
     )
     l_wheel = Wheel(
         start_stop_pin=13,
         run_break_pin=19,
         direction_pin=26,
         pwm_pin=3,
-        dir_func=lambda speed: speed > 0,
+        dir_func=lambda speed: speed < 0,
+    )
+    arm = Arm(
+        shoulder=Shoulder(
+            r_open_pin=9,
+            r_close_pin=11,
+            l_open_pin=8,
+            l_close_pin=25,
+        ),
+        r_hand=Hand(
+            pin=18,
+            initial_angle=160,
+            grip_angle=120,
+        ),
+        l_hand=Hand(pin=17, initial_angle=0, grip_angle=40),
     )
     arm = Arm(
         shoulder=Shoulder(
@@ -50,7 +63,7 @@ def main():
         l_hand=Hand(pin=17, initial_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=start_area.center,
+        position=(3000, 1500),
         rotation=np.radians(180),
         radius=500 / 2,
         r_wheel=r_wheel,

@@ -32,9 +32,6 @@ class Wheel:
         self._pwm = GPIO.PWM(self.pwm_pin, 1000)  # 1kHz
         self._pwm.start(0)
 
-        GPIO.output(self.run_break_pin, GPIO.HIGH)
-        GPIO.output(self.start_stop_pin, GPIO.HIGH)
-
     def on(self):
         """
         ホイールを動作状態にするメソッド
@@ -92,7 +89,7 @@ class Shoulder:
         time.sleep((1 / self.freq) * 400)
         self._r_open_pwm.ChangeDutyCycle(0)
         self._l_open_pwm.ChangeDutyCycle(0)
-    
+
     def close_shoulder(self):
         self._r_close_pwm.ChangeDutyCycle(50)
         self._l_close_pwm.ChangeDutyCycle(50)
@@ -148,7 +145,7 @@ class Arm:
 
     def open_shoulder(self):
         self.shoulder.open_shoulder()
-    
+
     def close_shoulder(self):
         self.shoulder.close_shoulder()
 
@@ -172,11 +169,11 @@ class Robot(Visualizable):
 
     r_wheel: Wheel
     l_wheel: Wheel
-
     arm: Arm
 
-    _dc = 20  # PWM duty cycle percentage
-    _speed = 138  # Speed in mm/s
+    _dc = 50
+    _angle_per_sec = np.radians(360 / 5)
+    _spd_per_sec = (138 / 3) * 10  # mm/s
 
     _drive_thread: threading.Thread | None = None
     _cancel_event: threading.Event = field(default_factory=threading.Event)
@@ -225,7 +222,7 @@ class Robot(Visualizable):
         Args:
             length (float): 直進距離 (mm)
         """
-        duration = length / self._speed
+        duration = length / self._spd_per_sec
         self.r_wheel.set_speed(self._dc)
         self.l_wheel.set_speed(self._dc)
         self.r_wheel.on()
@@ -235,8 +232,8 @@ class Robot(Visualizable):
                 break
             chunk = min(1 / 30, duration)
             with self._position_lock:
-                nx = self.position[0] + chunk * self._speed * np.cos(self.rotation)
-                ny = self.position[1] + chunk * self._speed * np.sin(self.rotation)
+                nx = self.position[0] + chunk * self._spd_per_sec * np.cos(self.rotation)
+                ny = self.position[1] + chunk * self._spd_per_sec * np.sin(self.rotation)
                 self.position = (nx, ny)
             time.sleep(chunk)
             duration -= chunk
@@ -249,8 +246,7 @@ class Robot(Visualizable):
         Args:
             angle (float): 回転角度 (rad)
         """
-        arc_length = self.radius * abs(angle)
-        duration = arc_length / self._speed
+        duration = abs(angle) / self._angle_per_sec
         if angle > 0:
             self.r_wheel.set_speed(-self._dc)
             self.l_wheel.set_speed(self._dc)
@@ -263,7 +259,7 @@ class Robot(Visualizable):
             if self._cancel_event.is_set():
                 break
             chunk = min(1 / 30, duration)
-            delta_angle = (chunk * self._speed) / self.radius
+            delta_angle = chunk * self._angle_per_sec
             with self._position_lock:
                 if angle > 0:
                     self.rotation += delta_angle
