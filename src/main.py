@@ -2,7 +2,9 @@ import numpy as np
 
 import test
 from pathfinding import PathPlanner
-from robot import Arm, Hand, Robot, Shoulder, Wheel
+from robot import Robot
+from robot_parts.arm import Arm, Hand, Shoulder
+from robot_parts.driver import Driver, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 
 
@@ -17,17 +19,19 @@ def main():
         x=1000,
         obstacled_y=[(0, 1000), (2000, 3000)],
     )
-    r_wheel = Wheel(
-        start_stop_pin=16,
-        run_break_pin=20,
-        direction_pin=21,
-        pwm_pin=2,
-    )
-    l_wheel = Wheel(
-        start_stop_pin=13,
-        run_break_pin=19,
-        direction_pin=26,
-        pwm_pin=3,
+    driver = Driver(
+        r_wheel=Wheel(
+            start_stop_pin=16,
+            run_break_pin=20,
+            direction_pin=21,
+            pwm_pin=2,
+        ),
+        l_wheel=Wheel(
+            start_stop_pin=13,
+            run_break_pin=19,
+            direction_pin=26,
+            pwm_pin=3,
+        ),
     )
     arm = Arm(
         r_shoulder=Shoulder(
@@ -49,8 +53,7 @@ def main():
         position=(3000, 1500),
         rotation=np.radians(180),
         radius=500 / 2,
-        r_wheel=r_wheel,
-        l_wheel=l_wheel,
+        driver=driver,
         arm=arm,
     )
     stage = Stage(

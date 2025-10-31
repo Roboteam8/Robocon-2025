@@ -6,9 +6,9 @@ import numpy as np
 
 from gpio import GPIO, DigitalPin, PwmPin
 
-__DC: float = 50
-__MM_PER_SEC: float = (138 / 3) * 10
-__RAD_PER_SEC = np.radians(360 / 5)
+DC: float = 50
+MM_PER_SEC: float = (138 / 3) * 10
+RAD_PER_SEC = np.radians(360 / 5)
 
 
 class Wheel:
@@ -26,14 +26,16 @@ class Wheel:
         self.__start_stop.set_state(GPIO.HIGH)
         self.__run_break.set_state(GPIO.HIGH)
 
-        self.__pwm = PwmPin(pwm_pin, initial_dc=__DC)
+        self.__pwm = PwmPin(pwm_pin, initial_dc=DC)
         self.__run_break.set_state(GPIO.LOW)
 
     async def run(self, direction: bool | Literal[0, 1], duration: float):
         self.__direction.set_state(direction)
         self.__start_stop.set_state(GPIO.LOW)
-        await asyncio.sleep(duration)
-        self.__start_stop.set_state(GPIO.HIGH)
+        try:
+            await asyncio.sleep(duration)
+        finally:
+            self.__start_stop.set_state(GPIO.HIGH)
 
 
 @dataclass
@@ -42,7 +44,7 @@ class Driver:
     l_wheel: Wheel
 
     async def straight(self, distance: float):
-        duration = abs(distance) / __MM_PER_SEC
+        duration = abs(distance) / MM_PER_SEC
         is_back = distance < 0
         await asyncio.gather(
             self.r_wheel.run(is_back, duration),
@@ -50,7 +52,7 @@ class Driver:
         )
 
     async def trun(self, angle: float):
-        duration = abs(angle) / __RAD_PER_SEC
+        duration = abs(angle) / RAD_PER_SEC
         is_right = angle < 0
         await asyncio.gather(
             self.r_wheel.run(is_right, duration),

@@ -1,15 +1,14 @@
-import threading
-import time
 from dataclasses import dataclass, field
+from types import CoroutineType
 
 import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
-from gpio import GPIO
-from tasks.driving import Driver
-from tasks.parcel_loading import Arm
+from robot_parts.arm import Arm
+from robot_parts.driver import Driver
+from util import CancellableTaskThread
 from visualize import Visualizable
 
 
@@ -32,94 +31,67 @@ class Robot(Visualizable):
     driver: Driver
     arm: Arm
 
-    __task_thread: threading.Thread = field(init=False, default=None)
-
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
+
+    __task_thread: CancellableTaskThread | None = field(init=False, default=None)
+
+    def __set_task(self, coro: CoroutineType):
+        if self.__task_thread is not None:
+            self.__task_thread.cancel()
+            self.__task_thread.join()
+        self.__task_thread = CancellableTaskThread(coro)
 
     def drive(self, path: list[tuple[float, float]]) -> None:
         """
-        ロボットを指定された経路に沿って移動させるメソッド
-        Args:
-            path (list[tuple[float, float]]): 移動経路の座標リスト
-        """
-        if self.__drive_thread and self.__drive_thread.is_alive():
-            self.__cancel_event.set()
-            self.__drive_thread.join()
-        self.__drive_thread = threading.Thread(
-            target=lambda: self.__drive(path), daemon=True
-        )
-        self.__cancel_event.clear()
-        self.__drive_thread.start()
+        ロボットを指定された経路に沿って移動させる非同期タスクを開始する。
+        既に移動タスクが実行中の場合はキャンセルされ、新しいタスクが開始される。
 
-    def __drive(self, path: list[tuple[float, float]]) -> None:
+        Args:
+            path (list[tuple[float, float]]): ロボットが移動する経路のリスト
+        """
+        self.__set_task(self.__drive(path))
+
+    async def __drive(self, path: list[tuple[float, float]]) -> None:
         self.__path = path
 
         for tx, ty in self.__path:
-            with self.__position_lock:
-                cx, cy = self.position
-                current_rotation = self.rotation
+            cx, cy = self.position
             if tx == cx and ty == cy:
                 continue
 
-            angle_diff = (np.arctan2(ty - cy, tx - cx) - current_rotation + np.pi) % (
+            angle_diff = (np.arctan2(ty - cy, tx - cx) - self.rotation + np.pi) % (
                 2 * np.pi
             ) - np.pi
             if abs(angle_diff) > 1e-2:
-                self.__turn(angle_diff)
+                await self.driver.trun(angle_diff)
 
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:
-                self.__go_straight(position_diff)
+                await self.driver.straight(position_diff)
 
-    def __go_straight(self, length: float):
+    def pickup_parcel(self):
         """
-        ロボットを直進させるメソッド
-        Args:
-            length (float): 直進距離 (mm)
+        ロボットのアームを使って荷物を拾う非同期タスクを開始する。
+        既にアーム操作タスクが実行中の場合はキャンセルされ、新しいタスクが開始される。
         """
-        duration = length / self.__SPEED
-        self.r_wheel.on(GPIO.HIGH)
-        self.l_wheel.on(GPIO.LOW)
-        while duration > 0:
-            if self.__cancel_event.is_set():
-                break
-            chunk = min(1 / 30, duration)
-            with self.__position_lock:
-                nx = self.position[0] + chunk * self.__SPEED * np.cos(self.rotation)
-                ny = self.position[1] + chunk * self.__SPEED * np.sin(self.rotation)
-                self.position = (nx, ny)
-            time.sleep(chunk)
-            duration -= chunk
-        self.r_wheel.off()
-        self.l_wheel.off()
+        self.__set_task(self.__pickup_parcel())
 
-    def __turn(self, angle: float):
+    async def __pickup_parcel(self):
+        await self.arm.open_shoulders()
+        await self.arm.grip_hands()
+        await self.arm.close_shoulders()
+
+    def release_parcel(self):
         """
-        ロボットを回転させるメソッド
-        Args:
-            angle (float): 回転角度 (rad)
+        ロボットのアームを使って荷物を放す非同期タスクを開始する。
+        既にアーム操作タスクが実行中の場合はキャンセルされ、新しいタスクが開始される。
         """
-        duration = abs(angle) / self.__ANGLE_SPEED
-        if angle > 0:
-            self.r_wheel.on(GPIO.LOW)
-            self.l_wheel.on(GPIO.HIGH)
-        else:
-            self.r_wheel.on(GPIO.HIGH)
-            self.l_wheel.on(GPIO.LOW)
-        while duration > 0:
-            if self.__cancel_event.is_set():
-                break
-            chunk = min(1 / 30, duration)
-            delta_angle = chunk * self.__ANGLE_SPEED
-            with self.__position_lock:
-                if angle > 0:
-                    self.rotation += delta_angle
-                else:
-                    self.rotation -= delta_angle
-            time.sleep(chunk)
-            duration -= chunk
-        self.r_wheel.off()
-        self.l_wheel.off()
+        self.__set_task(self.__release_parcel())
+
+    async def __release_parcel(self):
+        await self.arm.open_shoulders()
+        await self.arm.release_hands()
+        await self.arm.close_shoulders()
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
@@ -135,9 +107,8 @@ class Robot(Visualizable):
             )
             animated.extend(path_line)
 
-        with self.__position_lock:
-            x, y = self.position
-            rotation = self.rotation
+        x, y = self.position
+        rotation = self.rotation
         # ロボットの円
         circle = Circle(
             (x, y),
