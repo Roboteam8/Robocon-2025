@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -24,12 +25,15 @@ class Robot(Visualizable):
 
     position: tuple[float, float]
     rotation: float
+
     radius: float
 
     driver: Driver
     arm: Arm
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
+
+    __drive_task: asyncio.Task | None = field(init=False, default=None)
 
     async def drive(self, path: list[tuple[float, float]]) -> None:
         """

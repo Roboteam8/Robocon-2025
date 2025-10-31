@@ -2,12 +2,12 @@ import asyncio
 
 import numpy as np
 
-import test
 from pathfinding import PathPlanner
 from robot import Robot
 from robot_parts.arm import Arm, Hand, Shoulder
 from robot_parts.driver import Driver, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
+from visualize import visualize
 
 
 async def main():
@@ -52,7 +52,7 @@ async def main():
         l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=(3000, 1500),
+        position=start_area.center,
         rotation=np.radians(180),
         radius=500 / 2,
         driver=driver,
@@ -69,16 +69,24 @@ async def main():
     )
     path_planner = PathPlanner(stage)
 
-    await test.test_robot_pathfollowing(robot, path_planner)
-    await test.test_robot_arm(robot)
-    # robot.drive(path_planner.plan_path(robot.position, goals[2].center))
+    async def strategy():
+        try:
+            pathes = [path_planner.plan_path(start_area.center, goal.center) for goal in goals]
+            for path in pathes:
+                await robot.pickup_parcel()
+                await robot.drive(path)
+                await robot.release_parcel()
+                await robot.drive(path[::-1])
+            while True:
+                await robot.pickup_parcel()
+                await robot.drive(pathes[2])
+                await robot.release_parcel()
+                await robot.drive(pathes[2][::-1])
+        except asyncio.CancelledError:
+            print("Strategy task cancelled")
 
-    # thread = threading.Thread(target=functools.partial(test.test_robot_pathfollowing, robot, path_planner), daemon=True)
-    # thread.start()
-    # visualize(frame_rate=30)
-    # thread.join()
 
-    # test.test_robot_arm(robot)
+    task = asyncio.Task(strategy())
 
     # def additional_plot(ax: Axes):
     #     def on_click(event: Event):
@@ -91,7 +99,9 @@ async def main():
 
     #     ax.figure.canvas.mpl_connect("button_press_event", on_click)
 
-    # visualize(frame_rate=30, additional_plot=additional_plot)
+    visualize(frame_rate=30)
+    task.cancel()
+    await task
 
 
 if __name__ == "__main__":
