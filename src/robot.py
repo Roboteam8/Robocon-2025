@@ -1,110 +1,16 @@
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
 
 import numpy as np
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
-from gpio import GPIO, DigitalPin, PwmPin
+from gpio import GPIO
+from tasks.driving import Driver
+from tasks.parcel_loading import Arm
 from visualize import Visualizable
-
-
-class Wheel:
-    __DC: float = 50
-
-    __start_stop: DigitalPin
-    __run_break: DigitalPin
-    __direction: DigitalPin
-    __pwm: PwmPin
-
-    def __init__(
-        self, start_stop_pin: int, run_break_pin: int, direction_pin: int, pwm_pin: int
-    ):
-        self.__start_stop = DigitalPin(start_stop_pin, GPIO.OUT)
-        self.__run_break = DigitalPin(run_break_pin, GPIO.OUT)
-        self.__direction = DigitalPin(direction_pin, GPIO.OUT)
-        self.__pwm = PwmPin(pwm_pin)
-
-        self.__start_stop.set_state(GPIO.LOW)
-        self.__run_break.set_state(GPIO.LOW)
-
-    def on(self, direction: Literal[0, 1]):
-        self.__direction.set_state(direction)
-        self.__pwm.set_dc(self.__DC)
-
-    def off(self):
-        self.__pwm.set_dc(0)
-
-
-class Shoulder:
-    __FREQUENCY: int = 416
-
-    def __init__(self, open_pin: int, close_pin: int):
-        self.__open_pwm = PwmPin(open_pin, self.__FREQUENCY)
-        self.__close_pwm = PwmPin(close_pin, self.__FREQUENCY)
-
-    def open(self):
-        self.__open_pwm.set_dc(50)
-        time.sleep((1 / self.__FREQUENCY) * 400)
-        self.__open_pwm.set_dc(0)
-
-    def close(self):
-        self.__close_pwm.set_dc(50)
-        time.sleep((1 / self.__FREQUENCY) * 400)
-        self.__close_pwm.set_dc(0)
-
-
-class Hand:
-    __pwm: PwmPin
-    __release_angle: float
-    __grip_angle: float
-
-    def __init__(self, pin_num: int, release_angle: float, grip_angle: float) -> None:
-        self.__pwm = PwmPin(pin_num, frequency=50)
-        self.__set_angle(release_angle)
-        self.__release_angle = release_angle
-        self.__grip_angle = grip_angle
-
-    def __set_angle(self, angle: float):
-        self.__pwm.set_dc(2 + (angle / 18))
-        time.sleep(0.5)
-        self.__pwm.set_dc(0)
-
-    def release(self):
-        self.__set_angle(self.__release_angle)
-
-    def grip(self):
-        self.__set_angle(self.__grip_angle)
-
-
-@dataclass
-class Arm:
-    r_shoulder: Shoulder
-    l_shoulder: Shoulder
-    r_hand: Hand
-    l_hand: Hand
-
-    def __run_all(self, *func: Callable[[], Any]):
-        threads = [threading.Thread(target=f) for f in func]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-
-    def open_shoulders(self):
-        self.__run_all(self.r_shoulder.open, self.l_shoulder.open)
-
-    def close_shoulders(self):
-        self.__run_all(self.r_shoulder.close, self.l_shoulder.close)
-
-    def release_hands(self):
-        self.__run_all(self.r_hand.release, self.l_hand.release)
-
-    def grip_hands(self):
-        self.__run_all(self.r_hand.grip, self.l_hand.grip)
 
 
 @dataclass
@@ -115,25 +21,18 @@ class Robot(Visualizable):
         position (tuple[float, float]): ロボットの位置 (x, y)
         rotation (float): ロボットの向き (rad, -pi to pi)
         radius (float): ロボットの半径
-        r_wheel (Wheel): 右ホイールオブジェクト
-        l_wheel (Wheel): 左ホイールオブジェクト
-        arm (Arm): アームオブジェクト
+        driver (Driver): ロボットの運転を担当するDriverオブジェクト
+        arm (Arm): ロボットのアームを担当するArmオブジェクト
     """
 
     position: tuple[float, float]
     rotation: float
     radius: float
 
-    r_wheel: Wheel
-    l_wheel: Wheel
+    driver: Driver
     arm: Arm
 
-    __ANGLE_SPEED = np.radians(360 / 5)
-    __SPEED = (138 / 3) * 10
-
-    __drive_thread: threading.Thread | None = field(init=False, default=None)
-    __cancel_event: threading.Event = field(init=False, default_factory=threading.Event)
-    __position_lock: threading.Lock = field(init=False, default_factory=threading.Lock)
+    __task_thread: threading.Thread = field(init=False, default=None)
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
