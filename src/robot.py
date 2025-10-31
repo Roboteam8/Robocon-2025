@@ -112,21 +112,24 @@ class Robot(Visualizable):
     """
     ロボットの情報を管理するクラス
     Attributes:
-        position (tuple[float, float]): ロボットの位置 (x, y)
-        rotation (float): ロボットの向き (rad, -pi to pi)
-        radius (float): ロボットの半径
-        r_wheel (Wheel): 右ホイールオブジェクト
-        l_wheel (Wheel): 左ホイールオブジェクト
-        arm (Arm): アームオブジェクト
+        radius (float): ロボットの半径 (mm)
+        r_wheel (Wheel): 右車輪のインスタンス
+        l_wheel (Wheel): 左車輪のインスタンス
+        arm (Arm): アームのインスタンス
+        position (tuple[float, float]): ロボットの現在位置 (x, y)
+        rotation (float): ロボットの現在の向き (rad)
+        path (list[tuple[float, float]]): ロボットの現在の移動経路の座標リスト
     """
 
-    position: tuple[float, float]
-    rotation: float
     radius: float
 
     r_wheel: Wheel
     l_wheel: Wheel
     arm: Arm
+
+    position: tuple[float, float]
+    rotation: float
+    path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
     __ANGLE_SPEED = np.radians(360 / 5)
     __SPEED = (138 / 3) * 10
@@ -135,7 +138,6 @@ class Robot(Visualizable):
     __cancel_event: threading.Event = field(init=False, default_factory=threading.Event)
     __position_lock: threading.Lock = field(init=False, default_factory=threading.Lock)
 
-    __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
     def drive(self, path: list[tuple[float, float]]) -> None:
         """
@@ -153,9 +155,9 @@ class Robot(Visualizable):
         self.__drive_thread.start()
 
     def __drive(self, path: list[tuple[float, float]]) -> None:
-        self.__path = path
+        self.path = path
 
-        for tx, ty in self.__path:
+        for tx, ty in self.path:
             with self.__position_lock:
                 cx, cy = self.position
                 current_rotation = self.rotation
@@ -225,8 +227,8 @@ class Robot(Visualizable):
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
 
-        if self.__path:
-            path_xs, path_ys = zip(*self.__path)
+        if self.path:
+            path_xs, path_ys = zip(*self.path)
             path_line = ax.plot(
                 path_xs,
                 path_ys,
