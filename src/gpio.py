@@ -21,7 +21,7 @@ class DigitalPin:
     def __post_init__(self):
         GPIO.setup(self.pin_num, self.pin_mode)
 
-    def set_state(self, state: Literal[0, 1]):
+    def set_state(self, state: bool | Literal[0, 1]):
         GPIO.output(self.pin_num, state)
 
 @dataclass
