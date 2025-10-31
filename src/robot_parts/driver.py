@@ -1,14 +1,13 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
 
 from gpio import GPIO, DigitalPin, PwmPin
 
 DC: float = 50
-MM_PER_SEC: float = (138 / 3) * 10
-RAD_PER_SEC = np.radians(360 / 5)
+MM_PER_SEC: float = (170 / 3) * 10
+RAD_PER_SEC: float = 23/30 * np.pi
 
 
 class Wheel:
@@ -29,8 +28,8 @@ class Wheel:
         self.__pwm = PwmPin(pwm_pin, initial_dc=DC)
         self.__run_break.set_state(GPIO.LOW)
 
-    async def run(self, direction: bool | Literal[0, 1], duration: float):
-        self.__direction.set_state(direction)
+    async def run(self, direction: bool, duration: float):
+        self.__direction.set_state(GPIO.HIGH if direction else GPIO.LOW)
         self.__start_stop.set_state(GPIO.LOW)
         try:
             await asyncio.sleep(duration)
@@ -47,8 +46,8 @@ class Driver:
         duration = abs(distance) / MM_PER_SEC
         is_back = distance < 0
         await asyncio.gather(
-            self.r_wheel.run(is_back, duration),
-            self.l_wheel.run(not is_back, duration),
+            self.r_wheel.run(not is_back, duration),
+            self.l_wheel.run(is_back, duration),
         )
 
     async def trun(self, angle: float):
