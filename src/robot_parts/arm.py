@@ -13,17 +13,13 @@ class Shoulder:
 
     async def open(self):
         self.__open_pwm.set_dc(50)
-        try:
-            await asyncio.sleep((1 / FREQUENCY) * 400)
-        finally:
-            self.__open_pwm.set_dc(0)
+        await asyncio.sleep((1 / FREQUENCY) * 400)
+        self.__open_pwm.set_dc(0)
 
     async def close(self):
         self.__close_pwm.set_dc(50)
-        try:
-            await asyncio.sleep((1 / FREQUENCY) * 400)
-        finally:
-            self.__close_pwm.set_dc(0)
+        await asyncio.sleep((1 / FREQUENCY) * 400)
+        self.__close_pwm.set_dc(0)
 
 
 class Hand:
@@ -31,25 +27,27 @@ class Hand:
     __release_angle: float
     __grip_angle: float
 
+    __init_task: asyncio.Task
+
     def __init__(
         self, pin_num: int, release_angle: float, grip_angle: float
     ) -> None:
         self.__pwm = PwmPin(pin_num, frequency=50)
         self.__release_angle = release_angle
         self.__grip_angle = grip_angle
-        asyncio.run(self.__set_angle(release_angle))
+        self.__init_task = asyncio.Task(self.__set_angle(release_angle))
 
     async def __set_angle(self, angle: float):
         self.__pwm.set_dc(2 + (angle / 18))
-        try:
-            await asyncio.sleep(0.5)
-        finally:
-            self.__pwm.set_dc(0)
+        await asyncio.sleep(0.5)
+        self.__pwm.set_dc(0)
 
     async def release(self):
+        await self.__init_task
         await self.__set_angle(self.__release_angle)
 
     async def grip(self):
+        await self.__init_task
         await self.__set_angle(self.__grip_angle)
 
 

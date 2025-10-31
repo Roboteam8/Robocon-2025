@@ -1,3 +1,5 @@
+import asyncio
+
 import numpy as np
 
 import test
@@ -8,7 +10,7 @@ from robot_parts.driver import Driver, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 
 
-def main():
+async def main():
     start_area = StartArea(position=(4000, 0), size=1000)
     goals = [
         GoalArea(position=(1500, 0), size=1000, goal_id=1),
@@ -67,7 +69,8 @@ def main():
     )
     path_planner = PathPlanner(stage)
 
-    test.test_robot_pathfollowing(robot, path_planner)
+    await test.test_robot_pathfollowing(robot, path_planner)
+    await test.test_robot_arm(robot)
     # robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
     # thread = threading.Thread(target=functools.partial(test.test_robot_pathfollowing, robot, path_planner), daemon=True)
@@ -92,4 +95,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

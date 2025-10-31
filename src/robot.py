@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from types import CoroutineType
 
 import numpy as np
 from matplotlib.artist import Artist
@@ -8,7 +7,6 @@ from matplotlib.patches import Circle
 
 from robot_parts.arm import Arm
 from robot_parts.driver import Driver
-from util import CancellableTaskThread
 from visualize import Visualizable
 
 
@@ -33,25 +31,13 @@ class Robot(Visualizable):
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
-    __task_thread: CancellableTaskThread | None = field(init=False, default=None)
-
-    def __set_task(self, coro: CoroutineType):
-        if self.__task_thread is not None:
-            self.__task_thread.cancel()
-            self.__task_thread.join()
-        self.__task_thread = CancellableTaskThread(coro)
-
-    def drive(self, path: list[tuple[float, float]]) -> None:
+    async def drive(self, path: list[tuple[float, float]]) -> None:
         """
-        ロボットを指定された経路に沿って移動させる非同期タスクを開始する。
-        既に移動タスクが実行中の場合はキャンセルされ、新しいタスクが開始される。
+        指定された経路に沿ってロボットを運転する非同期メソッド
 
         Args:
-            path (list[tuple[float, float]]): ロボットが移動する経路のリスト
+            path (list[tuple[float, float]]): ロボットが辿る経路の座標リスト
         """
-        self.__set_task(self.__drive(path))
-
-    async def __drive(self, path: list[tuple[float, float]]) -> None:
         self.__path = path
 
         for tx, ty in self.__path:
@@ -69,26 +55,15 @@ class Robot(Visualizable):
             if abs(position_diff) > 1e-2:
                 await self.driver.straight(position_diff)
 
-    def pickup_parcel(self):
+    async def pickup_parcel(self):
         """
-        ロボットのアームを使って荷物を拾う非同期タスクを開始する。
-        既にアーム操作タスクが実行中の場合はキャンセルされ、新しいタスクが開始される。
+        荷物をピックアップする非同期メソッド
         """
-        self.__set_task(self.__pickup_parcel())
-
-    async def __pickup_parcel(self):
         await self.arm.open_shoulders()
         await self.arm.grip_hands()
         await self.arm.close_shoulders()
 
-    def release_parcel(self):
-        """
-        ロボットのアームを使って荷物を放す非同期タスクを開始する。
-        既にアーム操作タスクが実行中の場合はキャンセルされ、新しいタスクが開始される。
-        """
-        self.__set_task(self.__release_parcel())
-
-    async def __release_parcel(self):
+    async def release_parcel(self):
         await self.arm.open_shoulders()
         await self.arm.release_hands()
         await self.arm.close_shoulders()
