@@ -37,8 +37,8 @@ class PwmPin:
         self.__pwm = GPIO.PWM(self.pin_num, self.frequency)
         self.__pwm.start(self.initial_dc)
 
-    def __del__(self):
-        self.__pwm.stop()
+    # def __del__(self):
+    #     self.__pwm.stop()
 
     def set_dc(self, dc: float):
         if dc < 0 or 100 < dc:

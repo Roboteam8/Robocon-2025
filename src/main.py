@@ -84,25 +84,37 @@ async def main():
     # await asyncio.sleep(5)
     # await robot.release_parcel()
 
-    await robot.drive(path_planner.plan_path(robot.position, goals[2].center))
+    #await robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 
     # await robot.driver.turn(np.pi / 2)
 
-    # async def strategy():
-    #     try:
-    #         pathes = [path_planner.plan_path(start_area.center, goal.center) for goal in goals]
-    #         for path in pathes:
-    #             await robot.pickup_parcel()
-    #             await robot.drive(path)
-    #             await robot.release_parcel()
-    #             await robot.drive(path[::-1])
-    #         while True:
-    #             await robot.pickup_parcel()
-    #             await robot.drive(pathes[2])
-    #             await robot.release_parcel()
-    #             await robot.drive(pathes[2][::-1])
-    #     except asyncio.CancelledError:
-    #         print("Strategy task cancelled")
+    async def strategy():
+        try:
+            start_pos = (start_area.center[0] - 450, start_area.center[1])
+            pathes = [path_planner.plan_path(start_pos, (goals[0].center[0] + 450, goals[0].center[1])), path_planner.plan_path(start_pos, (goals[1].center[0], goals[1].center[1] -450)), path_planner.plan_path(start_pos, (goals[2].center[0], goals[2].center[1] -450))]
+            for path in pathes:
+                await robot.pickup_parcel()
+                await asyncio.sleep(0.2)
+                await robot.drive(path)
+                await asyncio.sleep(0.2)
+                await robot.release_parcel()
+                await asyncio.sleep(0.2)
+                await robot.drive(path[::-1])
+            while True:
+                await robot.pickup_parcel()
+                await asyncio.sleep(0.2)
+                await robot.drive(pathes[2])
+                await asyncio.sleep(0.2)
+                await robot.release_parcel()
+                await asyncio.sleep(0.2)
+                await robot.drive(pathes[2][::-1])
+        except asyncio.CancelledError:
+            print("Strategy task cancelled")
+    
+    # await robot.driver.turn(np.radians(90))
+        
+    await strategy()
+    await robot.arm.release_hands()
 
     # task = asyncio.Task(strategy())
 
