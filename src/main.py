@@ -68,12 +68,18 @@ async def main():
     )
     path_planner = PathPlanner(stage)
 
-    await robot.arm.release_hands()
-    await robot.arm.open_shoulders()
+    # await robot.driver.turn(np.pi / 2)
+    # await asyncio.sleep(1)
+    # await robot.driver.turn(- np.pi / 2)
+    # await asyncio.sleep(1)
+    # await robot.driver.turn(np.pi / 2)
 
-    await robot.pickup_parcel()
-    await asyncio.sleep(5)
-    await robot.release_parcel()
+    # await robot.arm.release_hands()
+    # await robot.arm.open_shoulders()
+
+    # await robot.pickup_parcel()
+    # await asyncio.sleep(5)
+    # await robot.release_parcel()
 
     # await robot.drive(path_planner.plan_path(robot.position, goals[2].center))
 

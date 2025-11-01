@@ -7,7 +7,7 @@ from gpio import GPIO, DigitalPin, PwmPin
 
 DC: float = 50
 MM_PER_SEC: float = (170 / 3) * 10
-RAD_PER_SEC: float = 23/30 * np.pi
+RAD_PER_SEC: float = np.radians(677 / 5)
 
 
 class Wheel:
@@ -50,7 +50,7 @@ class Driver:
             self.l_wheel.run(is_back, duration),
         )
 
-    async def trun(self, angle: float):
+    async def turn(self, angle: float):
         duration = abs(angle) / RAD_PER_SEC
         is_right = angle < 0
         await asyncio.gather(

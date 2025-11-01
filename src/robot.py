@@ -52,7 +52,7 @@ class Robot(Visualizable):
             angle_diff = (np.arctan2(ty - cy, tx - cx) - self.rotation + np.pi) % (
                 2 * np.pi
             ) - np.pi
-            await self.driver.trun(angle_diff)
+            await self.driver.turn(angle_diff)
             self.rotation = (self.rotation + angle_diff + np.pi) % (2 * np.pi) - np.pi
 
             position_diff = np.hypot(tx - cx, ty - cy)
