@@ -50,12 +50,12 @@ class Robot(Visualizable):
             angle_diff = (np.arctan2(ty - cy, tx - cx) - self.rotation + np.pi) % (
                 2 * np.pi
             ) - np.pi
-            if abs(angle_diff) > 1e-2:
-                await self.driver.trun(angle_diff)
+            await self.driver.turn(angle_diff)
+            self.rotation = (self.rotation + angle_diff + np.pi) % (2 * np.pi) - np.pi
 
             position_diff = np.hypot(tx - cx, ty - cy)
-            if abs(position_diff) > 1e-2:
-                await self.driver.straight(position_diff)
+            await self.driver.straight(position_diff)
+            self.position = (tx, ty)
         await asyncio.sleep(0.1)
 
     async def pickup_parcel(self):
