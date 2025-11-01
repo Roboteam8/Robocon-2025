@@ -51,7 +51,7 @@ class Robot(Visualizable):
                 2 * np.pi
             ) - np.pi
             if abs(angle_diff) > 1e-2:
-                await self.driver.trun(angle_diff)
+                await self.driver.turn(angle_diff)
 
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:

@@ -30,7 +30,7 @@ class Wheel:
         self.__run_break.set_state(GPIO.LOW)
 
     async def run(self, direction: bool | Literal[0, 1], duration: float):
-        self.__direction.set_state(direction)
+        self.__direction.set_state(1 if direction else 0)
         self.__start_stop.set_state(GPIO.LOW)
         try:
             await asyncio.sleep(duration)
@@ -51,7 +51,7 @@ class Driver:
             self.l_wheel.run(not is_back, duration),
         )
 
-    async def trun(self, angle: float):
+    async def turn(self, angle: float):
         duration = abs(angle) / RAD_PER_SEC
         is_right = angle < 0
         await asyncio.gather(

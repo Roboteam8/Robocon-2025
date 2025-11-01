@@ -53,7 +53,7 @@ async def main():
         l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=goals[1].center,
+        position=start_area.center,
         rotation=np.radians(180),
         radius=500 / 2,
         driver=driver,
@@ -81,36 +81,54 @@ async def main():
         robot=robot,
     )
 
-    path_planner = PathPlanner(stage)
+    # await robot.driver.turn(np.pi)
+    # await robot.driver.turn(-np.pi)
+
+    # path_planner = PathPlanner(stage)
 
     async def correct_path():
         while True:
             detected = detect_ar()
-            print(detected)
-            # rx, ry = robot.position
-            # cx, cy = (
-            #     rx + np.cos(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
-            #     ry + np.sin(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
-            # )
-            # for (dx, dy), marker_id in detected:
-            #     if len(ar_markers) <= marker_id:
-            #         continue
+            rx, ry = robot.position
+            cx, cy = (
+                rx + np.cos(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
+                ry + np.sin(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
+            )
+            for (dx, dy), marker_id in detected:
+                if len(ar_markers) <= marker_id:
+                    continue
 
-            #     ar_marker = ar_markers[marker_id - 1]
+                ar_marker = ar_markers[marker_id - 1]
 
-            #     estimated_position = (
-            #         ar_marker.position[0] + (dx * np.sin(robot.rotation) - dy * np.cos(robot.rotation)),
-            #         ar_marker.position[1] + (dx * np.cos(robot.rotation) + dy * np.sin(robot.rotation)),
-            #     )
-            #     estimated_rotation = np.pi + robot.rotation - np.arctan2(dy, dx)
-            #     print(f"Estimated Position from AR Marker {marker_id}: {estimated_position}")
-            #     # marker_prediction = (
-            #     #     cx + (dx * np.sin(robot.rotation) + dy * np.cos(robot.rotation)),
-            #     #     cy + (- dx * np.cos(robot.rotation) + dy * np.sin(robot.rotation)),
-            #     # )
-            #     # print(
-            #     #     f"{ar_marker.position} <- {marker_prediction} (AR Marker {marker_id})"
-            #     # )
+                actual_position = (
+                    ar_marker.position[0]
+                    + (dx * np.sin(robot.rotation) - dy * np.cos(robot.rotation)),
+                    ar_marker.position[1]
+                    + (dx * np.cos(robot.rotation) + dy * np.sin(robot.rotation)),
+                )
+                estimated_relative_position = (
+                    np.arctan2(ar_marker.position[1] - cy, ar_marker.position[0] - cx)
+                    - robot.rotation
+                )
+                actual_relative_rotation = np.arctan2(dy, dx) - (np.pi / 2)
+
+                print(f"AR Marker {marker_id}:")
+                print(f"  Estimated Position: ({rx:.1f}, {ry:.1f})")
+                print(
+                    f"  Actual Position:    ({actual_position[0]:.1f}, {actual_position[1]:.1f})"
+                )
+                print(
+                    f"  Estimated Relative Rotation: {np.degrees(estimated_relative_position):.1f} deg"
+                )
+                print(
+                    f"  Actual Relative Rotation:    {np.degrees(actual_relative_rotation):.1f} deg"
+                )
+                await robot.driver.turn(
+                    actual_relative_rotation - estimated_relative_position
+                )
+            if not detected:
+                print("AR Marker: None detected")
+            await asyncio.sleep(1)
 
     await correct_path()
 

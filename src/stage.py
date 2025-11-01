@@ -167,7 +167,7 @@ class ARMarker(Visualizable):
         ax.text(
             self.position[0],
             self.position[1],
-            f"AR Marker {self.marker_id}",
+            "AR Marker",
             color="black",
             fontsize=12,
             ha="center",
