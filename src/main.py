@@ -81,8 +81,10 @@ async def main():
         robot=robot,
     )
 
-    # await robot.driver.turn(np.pi)
-    # await robot.driver.turn(-np.pi)
+    while True:
+        await robot.driver.turn(np.pi)
+        await asyncio.sleep(1)
+
 
     # path_planner = PathPlanner(stage)
 
