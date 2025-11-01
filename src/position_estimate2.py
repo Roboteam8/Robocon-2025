@@ -15,7 +15,7 @@ if image is None:
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 parameters = cv2.aruco.DetectorParameters()
 detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
-corners, ids, rejected = detector.detectMarkers(image)
+corners, ids, rejected = detector.detectMarkers(im
 
 if ids is None:
     print("マーカーが検出されませんでした。")

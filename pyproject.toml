@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.10.6",
     "numpy>=2.3.3",
+    "opencv-python>=4.11.0.86",
     "rpi-gpio>=0.7.1 ; sys_platform == 'linux'",
     "shapely>=2.1.2",
     "typing-extensions>=4.15.0",
@@ -14,6 +15,9 @@ dependencies = [
 
 [dependency-groups]
 dev = ["ruff>=0.13.1"]
+
+[tool.uv]
+python-preference = "only-system"
 
 [tool.pyright]
 reportUnknownMemberType = false

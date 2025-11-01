@@ -5,6 +5,7 @@ import numpy as np
 from pathfinding import PathPlanner
 from robot import Robot
 from robot_parts.arm import Arm, Hand, Shoulder
+from robot_parts.camera import detect_ar
 from robot_parts.driver import Driver, Wheel
 from stage import GoalArea, Stage, StartArea, Wall
 from visualize import visualize
@@ -67,41 +68,45 @@ async def main():
         ar_markers=[],
         robot=robot,
     )
-    path_planner = PathPlanner(stage)
 
-    async def strategy():
-        try:
-            pathes = [path_planner.plan_path(start_area.center, goal.center) for goal in goals]
-            for path in pathes:
-                await robot.pickup_parcel()
-                await robot.drive(path)
-                await robot.release_parcel()
-                await robot.drive(path[::-1])
-            while True:
-                await robot.pickup_parcel()
-                await robot.drive(pathes[2])
-                await robot.release_parcel()
-                await robot.drive(pathes[2][::-1])
-        except asyncio.CancelledError:
-            print("Strategy task cancelled")
+    while True:
+        print(detect_ar())
+        await asyncio.sleep(0.5)
 
+    # path_planner = PathPlanner(stage)
 
-    task = asyncio.Task(strategy())
+    # async def strategy():
+    #     try:
+    #         pathes = [path_planner.plan_path(start_area.center, goal.center) for goal in goals]
+    #         for path in pathes:
+    #             await robot.pickup_parcel()
+    #             await robot.drive(path)
+    #             await robot.release_parcel()
+    #             await robot.drive(path[::-1])
+    #         while True:
+    #             await robot.pickup_parcel()
+    #             await robot.drive(pathes[2])
+    #             await robot.release_parcel()
+    #             await robot.drive(pathes[2][::-1])
+    #     except asyncio.CancelledError:
+    #         print("Strategy task cancelled")
 
-    # def additional_plot(ax: Axes):
-    #     def on_click(event: Event):
-    #         if not isinstance(event, MouseEvent):
-    #             return
-    #         x, y = event.xdata, event.ydata
-    #         if x is None or y is None:
-    #             return
-    #         # robot.drive(path_planner.plan_path(robot.position, (x, y)))
+    # task = asyncio.Task(strategy())
 
-    #     ax.figure.canvas.mpl_connect("button_press_event", on_click)
+    # # def additional_plot(ax: Axes):
+    # #     def on_click(event: Event):
+    # #         if not isinstance(event, MouseEvent):
+    # #             return
+    # #         x, y = event.xdata, event.ydata
+    # #         if x is None or y is None:
+    # #             return
+    # #         # robot.drive(path_planner.plan_path(robot.position, (x, y)))
 
-    visualize(frame_rate=30)
-    task.cancel()
-    await task
+    # #     ax.figure.canvas.mpl_connect("button_press_event", on_click)
+
+    # visualize(frame_rate=30)
+    # task.cancel()
+    # await task
 
 
 if __name__ == "__main__":
