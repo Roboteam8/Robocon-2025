@@ -52,7 +52,7 @@ async def main():
     )
     robot = Robot(
         position=goals[1].center,
-        rotation=np.radians(-90),
+        rotation=np.radians(180),
         radius=500 / 2,
         driver=driver,
         arm=arm,

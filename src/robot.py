@@ -104,23 +104,17 @@ class Robot(Visualizable):
             return
         xs = []
         ys = []
-        rs = []
         for (rx, ry), m_id in detected:
             if m_id >= len(markers):
                 continue
             mx, my = markers[m_id - 1].position
             ma = markers[m_id - 1].normal_angle
-            cr = ma + np.arctan2(ry, rx)
-            cr = (cr + np.pi) % (2 * np.pi) - np.pi
-            cr = cr - np.pi if cr > 0 else cr + np.pi
-            rs.append(cr)
-            x = mx - (rx * np.sin(cr) + ry * np.cos(cr))
-            y = my - (- rx * np.cos(cr) + ry * np.sin(cr))
+            x = mx + rx * np.cos(ma) + ry * np.sin(ma)            
+            y = my + rx * np.sin(ma) - ry * np.cos(ma)
             xs.append(x)
             ys.append(y)
-            print(f"AR ID:{m_id} pos:({x:.1f},{y:.1f}) rot:{np.degrees(cr):.1f}")
+            print(f"AR ID:{m_id} pos:({x:.1f},{y:.1f})")
         self.position = (float(np.mean(xs)), float(np.mean(ys)))
-        self.rotation = float(np.mean(rs))
         
 
     def animate(self, ax: Axes) -> list[Artist]:
