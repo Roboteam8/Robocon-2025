@@ -1,74 +1,59 @@
-import time
-import cv2
-import cv2.aruco as aruco
+from dataclasses import dataclass
+
 import numpy as np
-from picamera2 import Picamera2
+from matplotlib.axes import Axes
+from matplotlib.patches import Rectangle
+from matplotlib.transforms import Affine2D
 
-# --- カメラパラメータ（概算） ---
-camera_matrix = np.array([[600, 0, 320],
-                          [0, 600, 240],
-                          [0, 0, 1]], dtype=float)
-dist_coeffs = np.zeros((5,1))
+from visualize import Visualizable
 
-# --- ARマーカーサイズ（mm単位） ---
-marker_size_mm = 50
-marker_size_m = marker_size_mm / 1000
 
-# --- ArUco辞書とパラメータ ---
-aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-parameters = aruco.DetectorParameters()
+@dataclass
+class ARMarker(Visualizable):
+    """
+    ARマーカーの情報を管理するクラス
+    Attributes:
+        position (tuple[int, int]): ARマーカーの座標 (x, y)
+        normal (tuple[int, int]): ARマーカーの法線ベクトル (nx, ny)
+    """
 
-# --- マーカーID → 種類 ---
-marker_types = {i: f"Type {i}" for i in range(11)}
+    position: tuple[int, int]
+    normal: tuple[int, int]
 
-# --- Picamera2 初期化 ---
-picam2 = Picamera2()
-config = picam2.create_preview_configuration(main={"size": (640, 480), "format": "RGB888"})
-picam2.configure(config)
-picam2.start()
+    @property
+    def normal_angle(self):
+        return np.arctan2(self.normal[1], self.normal[0])
 
-ar_relative_distance = {}
-
-print("ESCキーで終了")
-
-while True:
-    frame = picam2.capture_array()
-    if frame is None or frame.size == 0:
-        continue
-
-    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    corners, ids, rejected = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
-
-    if ids is not None:
-        for i, corner in enumerate(corners):
-            rvec, tvec, _ = aruco.estimatePoseSingleMarkers(
-                corner, marker_size_m, camera_matrix, dist_coeffs
+    def visualize(self, ax: Axes):
+        marker_size = 800
+        ax.add_patch(
+            Rectangle(
+                (
+                    self.position[0] - marker_size / 2,
+                    self.position[1] - marker_size / 2,
+                ),
+                10,
+                marker_size,
+                facecolor="blanchedalmond",
+                edgecolor="black",
+                transform=Affine2D().rotate_deg_around(
+                    self.position[0],
+                    self.position[1],
+                    np.degrees(np.arctan2(self.normal[1], self.normal[0])),
+                ),
             )
-            tvec = tvec[0][0]
-
-            marker_id = ids[i][0]
-            dx_mm = tvec[0] * 1000
-            dy_mm = tvec[2] * 1000
-            marker_type = marker_types.get(marker_id, "Unknown")
-
-            ar_relative_distance[marker_id] = {
-                'type': marker_type,
-                'dx': dx_mm,
-                'dy': dy_mm
-            }
-
-    if ar_relative_distance:
-        print("------ AR Marker Info ------")
-        for mid, info in ar_relative_distance.items():
-            print(f"ID {mid} ({info['type']}): dx={info['dx']:.1f}mm, dy={info['dy']:.1f}mm")
-        print("---------------------------\n")
-
-    # 0.5秒待つ
-    time.sleep(0.5)
-
-    # ESCで終了
-    if cv2.waitKey(1) & 0xFF == 27:
-        break
-
-cv2.destroyAllWindows()
-picam2.stop()
+        )
+        ax.text(
+            self.position[0],
+            self.position[1],
+            "AR Marker",
+            color="black",
+            fontsize=12,
+            ha="center",
+            va="center",
+            transform=Affine2D().rotate_deg_around(
+                self.position[0],
+                self.position[1],
+                np.degrees(np.arctan2(self.normal[1], self.normal[0])),
+            ),
+        )

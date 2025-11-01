@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
 
@@ -29,7 +28,7 @@ class Wheel:
         self.__pwm = PwmPin(pwm_pin, initial_dc=DC)
         self.__run_break.set_state(GPIO.LOW)
 
-    async def run(self, direction: bool | Literal[0, 1], duration: float):
+    async def run(self, direction: bool, duration: float):
         self.__direction.set_state(1 if direction else 0)
         self.__start_stop.set_state(GPIO.LOW)
         try:
@@ -50,7 +49,6 @@ class Driver:
             self.r_wheel.run(not is_back, duration),
             self.l_wheel.run(is_back, duration),
         )
-        await asyncio.sleep(.5)
 
     async def turn(self, angle: float):
         duration = abs(angle) / RAD_PER_SEC
@@ -59,4 +57,3 @@ class Driver:
             self.r_wheel.run(is_right, duration),
             self.l_wheel.run(is_right, duration),
         )
-        await asyncio.sleep(0.5)

@@ -1,12 +1,8 @@
-import asyncio
 
 import cv2
 import cv2.aruco as aruco
 import numpy as np
 from picamera2 import Picamera2
-
-from robot import Robot
-from stage import ARMarker
 
 CAMREA_RELATIVE_POS = 202.5
 
@@ -55,50 +51,6 @@ def detect_ar() -> list[tuple[tuple[float, float], int]]:
         )
         if success:
             x, _, z = tvec.flatten()
-            result.append(((float(x * 1000), float(z * 1000)), int(marker_id)))
+            result.append(((float(z * 1000), float(x * 1000)), int(marker_id)))
 
     return result
-
-
-
-
-async def correct_path(robot: Robot, ar_markers: list[ARMarker]):
-    while True:
-        detected = detect_ar()
-        rx, ry = robot.position
-        cx, cy = (
-            rx + np.cos(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
-            ry + np.sin(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
-        )
-        for (dx, dy), marker_id in detected:
-            if len(ar_markers) <= marker_id:
-                continue
-
-            ar_marker = ar_markers[marker_id - 1]
-
-            actual_position = (
-                ar_marker.position[0]
-                + (dx * np.sin(robot.rotation) - dy * np.cos(robot.rotation)),
-                ar_marker.position[1]
-                + (dx * np.cos(robot.rotation) + dy * np.sin(robot.rotation)),
-            )
-            estimated_relative_position = (
-                np.arctan2(ar_marker.position[1] - cy, ar_marker.position[0] - cx)
-                - robot.rotation
-            )
-            actual_relative_rotation = np.arctan2(dy, dx) - (np.pi / 2)
-
-            print(f"AR Marker {marker_id}:")
-            print(f"  Estimated Position: ({rx:.1f}, {ry:.1f})")
-            print(
-                f"  Actual Position:    ({actual_position[0]:.1f}, {actual_position[1]:.1f})"
-            )
-            print(
-                f"  Estimated Relative Rotation: {np.degrees(estimated_relative_position):.1f} deg"
-            )
-            print(
-                f"  Actual Relative Rotation:    {np.degrees(actual_relative_rotation):.1f} deg"
-            )
-        if not detected:
-            print("AR Marker: None detected")
-        await asyncio.sleep(1)

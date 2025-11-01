@@ -5,7 +5,6 @@ import numpy as np
 from pathfinding import PathPlanner
 from robot import Robot
 from robot_parts.arm import Arm, Hand, Shoulder
-from robot_parts.camera import correct_path
 from robot_parts.driver import Driver, Wheel
 from stage import ARMarker, GoalArea, Stage, StartArea, Wall
 
@@ -52,7 +51,7 @@ async def main():
         l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=goals[2].center,
+        position=start_area.center,
         rotation=np.radians(180),
         radius=500 / 2,
         driver=driver,
@@ -82,7 +81,12 @@ async def main():
 
     path_planner = PathPlanner(stage)
 
-    await correct_path(robot, ar_markers)
+    await robot.drive(path_planner.plan_path(robot.position, goals[2].center), ar_markers)
+
+    # while True:
+    #     robot.detect_position(ar_markers)
+    #     # print(detect_ar())
+    #     await asyncio.sleep(1)
 
     # async def strategy():
     #     try:

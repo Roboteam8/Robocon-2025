@@ -6,7 +6,9 @@ from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
+from ar import ARMarker
 from robot_parts.arm import Arm
+from robot_parts.camera import detect_ar
 from robot_parts.driver import Driver
 from visualize import Visualizable
 
@@ -33,7 +35,9 @@ class Robot(Visualizable):
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
-    async def drive(self, path: list[tuple[float, float]]) -> None:
+    async def drive(
+        self, path: list[tuple[float, float]], markers: list[ARMarker]
+    ) -> None:
         """
         指定された経路に沿ってロボットを運転する非同期メソッド
 
@@ -42,22 +46,37 @@ class Robot(Visualizable):
         """
         self.__path = path
 
-        for tx, ty in self.__path:
-            cx, cy = self.position
-            if tx == cx and ty == cy:
+        for i, (tx, ty) in enumerate(self.__path):
+            if tx == self.position[0] and ty == self.position[1]:
                 continue
 
-            angle_diff = (np.arctan2(ty - cy, tx - cx) - self.rotation + np.pi) % (
-                2 * np.pi
-            ) - np.pi
-            if abs(angle_diff) > 1e-2:
-                await self.driver.turn(angle_diff)
+            angle_diff = (
+                np.arctan2(ty - self.position[1], tx - self.position[0])
+                - self.rotation
+                + np.pi
+            ) % (2 * np.pi) - np.pi
+            await self.driver.turn(angle_diff)
             self.rotation += angle_diff
 
-            position_diff = np.hypot(tx - cx, ty - cy)
-            if abs(position_diff) > 1e-2:
-                await self.driver.straight(position_diff)
-            self.position = (tx, ty)
+            await asyncio.sleep(0.3)
+
+            position_diff = np.hypot(tx - self.position[0], ty - self.position[1])
+            while position_diff > 5:
+                await self.driver.straight(min(position_diff, 300))
+                dx, dy = self.detect_position(markers)
+                if dx == self.position[0] and dy == self.position[1]:
+                    position_diff -= 300
+                    continue
+                if abs(np.arctan2(ty - dy, tx - dx) - self.rotation) > np.radians(1):
+                    self.rotation = np.arctan2(
+                        dy - self.position[1], dx - self.position[0]
+                    )
+                    self.position = (dx, dy)
+                    self.__path.insert(i, (tx, ty))
+                    break
+                position_diff = np.hypot(tx - dx, ty - dy)
+
+            await asyncio.sleep(0.3)
         await asyncio.sleep(0.1)
 
     async def pickup_parcel(self):
@@ -78,6 +97,33 @@ class Robot(Visualizable):
         await asyncio.sleep(0.1)
         await self.arm.close_shoulders()
         await asyncio.sleep(0.1)
+
+    def detect_position(self, markers: list[ARMarker]) -> tuple[float, float]:
+        detected = detect_ar()
+        if not detected:
+            return (self.position[0], self.position[1])
+        xs = []
+        ys = []
+        for (rx, ry), m_id in detected:
+            if m_id >= len(markers):
+                continue
+            mx, my = markers[m_id - 1].position
+            x = (
+                mx
+                + rx * np.cos(markers[m_id - 1].normal_angle)
+                - ry * np.sin(markers[m_id - 1].normal_angle)
+            )
+            y = (
+                my
+                + rx * np.sin(markers[m_id - 1].normal_angle)
+                + ry * np.cos(markers[m_id - 1].normal_angle)
+            )
+            xs.append(x)
+            ys.append(y)
+            print(f"AR Marker {m_id}: Robot pos estimate ({x:.1f}, {y:.1f})")
+        dx, dy = (float(np.mean(xs)), float(np.mean(ys)))
+
+        return (dx, dy)
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
