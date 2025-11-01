@@ -6,7 +6,9 @@ from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.patches import Circle
 
+from ar import ARMarker
 from robot_parts.arm import Arm
+from robot_parts.camera import detect_ar
 from robot_parts.driver import Driver
 from robot_parts.ear import hear_ultrasonic
 from visualize import Visualizable
@@ -34,7 +36,9 @@ class Robot(Visualizable):
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
-    async def drive(self, path: list[tuple[float, float]]) -> None:
+    async def drive(
+        self, path: list[tuple[float, float]], markers: list[ARMarker]
+    ) -> None:
         """
         指定された経路に沿ってロボットを運転する非同期メソッド
 
@@ -44,6 +48,7 @@ class Robot(Visualizable):
         self.__path = path
 
         for tx, ty in self.__path:
+            self.detect_position(markers)
             cx, cy = self.position
             if tx == cx and ty == cy:
                 continue
@@ -83,6 +88,24 @@ class Robot(Visualizable):
         await asyncio.sleep(0.1)
         await self.arm.close_shoulders()
         await asyncio.sleep(0.1)
+
+    def detect_position(self, markers: list[ARMarker]):
+        detected = detect_ar()
+        if not detected:
+            return
+        xs = []
+        ys = []
+        for (rx, ry), m_id in detected:
+            if m_id >= len(markers):
+                continue
+            mx, my = markers[m_id - 1].position
+            ma = markers[m_id - 1].normal_angle
+            x = mx + rx * np.cos(ma) + ry * np.sin(ma)
+            y = my + rx * np.sin(ma) - ry * np.cos(ma)
+            xs.append(x)
+            ys.append(y)
+            print(f"AR ID:{m_id} pos:({x:.1f},{y:.1f})")
+        self.position = (float(np.mean(xs)), float(np.mean(ys)))
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
