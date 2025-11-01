@@ -47,9 +47,10 @@ class Driver:
         duration = abs(distance) / MM_PER_SEC
         is_back = distance < 0
         await asyncio.gather(
-            self.r_wheel.run(is_back, duration),
-            self.l_wheel.run(not is_back, duration),
+            self.r_wheel.run(not is_back, duration),
+            self.l_wheel.run(is_back, duration),
         )
+        await asyncio.sleep(.5)
 
     async def turn(self, angle: float):
         duration = abs(angle) / RAD_PER_SEC
@@ -58,3 +59,4 @@ class Driver:
             self.r_wheel.run(is_right, duration),
             self.l_wheel.run(is_right, duration),
         )
+        await asyncio.sleep(0.5)

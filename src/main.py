@@ -5,10 +5,9 @@ import numpy as np
 from pathfinding import PathPlanner
 from robot import Robot
 from robot_parts.arm import Arm, Hand, Shoulder
-from robot_parts.camera import CAMREA_RELATIVE_POS, detect_ar
+from robot_parts.camera import correct_path
 from robot_parts.driver import Driver, Wheel
 from stage import ARMarker, GoalArea, Stage, StartArea, Wall
-from visualize import visualize
 
 
 async def main():
@@ -53,7 +52,7 @@ async def main():
         l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=start_area.center,
+        position=goals[2].center,
         rotation=np.radians(180),
         radius=500 / 2,
         driver=driver,
@@ -81,58 +80,9 @@ async def main():
         robot=robot,
     )
 
-    while True:
-        await robot.driver.turn(np.pi)
-        await asyncio.sleep(1)
+    path_planner = PathPlanner(stage)
 
-
-    # path_planner = PathPlanner(stage)
-
-    async def correct_path():
-        while True:
-            detected = detect_ar()
-            rx, ry = robot.position
-            cx, cy = (
-                rx + np.cos(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
-                ry + np.sin(np.pi - robot.rotation) * CAMREA_RELATIVE_POS,
-            )
-            for (dx, dy), marker_id in detected:
-                if len(ar_markers) <= marker_id:
-                    continue
-
-                ar_marker = ar_markers[marker_id - 1]
-
-                actual_position = (
-                    ar_marker.position[0]
-                    + (dx * np.sin(robot.rotation) - dy * np.cos(robot.rotation)),
-                    ar_marker.position[1]
-                    + (dx * np.cos(robot.rotation) + dy * np.sin(robot.rotation)),
-                )
-                estimated_relative_position = (
-                    np.arctan2(ar_marker.position[1] - cy, ar_marker.position[0] - cx)
-                    - robot.rotation
-                )
-                actual_relative_rotation = np.arctan2(dy, dx) - (np.pi / 2)
-
-                print(f"AR Marker {marker_id}:")
-                print(f"  Estimated Position: ({rx:.1f}, {ry:.1f})")
-                print(
-                    f"  Actual Position:    ({actual_position[0]:.1f}, {actual_position[1]:.1f})"
-                )
-                print(
-                    f"  Estimated Relative Rotation: {np.degrees(estimated_relative_position):.1f} deg"
-                )
-                print(
-                    f"  Actual Relative Rotation:    {np.degrees(actual_relative_rotation):.1f} deg"
-                )
-                await robot.driver.turn(
-                    actual_relative_rotation - estimated_relative_position
-                )
-            if not detected:
-                print("AR Marker: None detected")
-            await asyncio.sleep(1)
-
-    await correct_path()
+    await correct_path(robot, ar_markers)
 
     # async def strategy():
     #     try:
