@@ -140,12 +140,10 @@ class ARMarker(Visualizable):
     Attributes:
         position (tuple[int, int]): ARマーカーの座標 (x, y)
         normal (tuple[int, int]): ARマーカーの法線ベクトル (nx, ny)
-        marker_id (int): ARマーカーの識別子
     """
 
     position: tuple[int, int]
     normal: tuple[int, int]
-    marker_id: int
 
     def visualize(self, ax: Axes):
         marker_size = 800
