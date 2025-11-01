@@ -8,6 +8,7 @@ from matplotlib.patches import Circle
 
 from robot_parts.arm import Arm
 from robot_parts.driver import Driver
+from robot_parts.ear import hear_ultrasonic
 from visualize import Visualizable
 
 
@@ -63,6 +64,12 @@ class Robot(Visualizable):
         荷物をピックアップする非同期メソッド
         """
         await self.arm.open_shoulders()
+        await self.arm.release_hands()
+        distance = float("NaN")
+        while distance >= 150:
+            distance = await hear_ultrasonic()
+            if distance >= 150:
+                await self.driver.straight(1)
         await asyncio.sleep(0.1)
         await self.arm.grip_hands()
         await asyncio.sleep(0.1)

@@ -113,8 +113,8 @@ async def main():
     
     # await robot.driver.turn(np.radians(90))
         
-    await strategy()
-    await robot.arm.release_hands()
+    # await strategy()
+    # await robot.arm.release_hands()
 
     # task = asyncio.Task(strategy())
 
