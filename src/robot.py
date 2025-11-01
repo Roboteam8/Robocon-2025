@@ -63,7 +63,7 @@ class Robot(Visualizable):
             position_diff = np.hypot(tx - self.position[0], ty - self.position[1])
             while position_diff > 5:
                 await self.driver.straight(min(position_diff, 300))
-                dx, dy = self.detect_position(markers)
+                self.detect_position(markers)
                 if dx == self.position[0] and dy == self.position[1]:
                     position_diff -= 300
                     continue
@@ -98,32 +98,30 @@ class Robot(Visualizable):
         await self.arm.close_shoulders()
         await asyncio.sleep(0.1)
 
-    def detect_position(self, markers: list[ARMarker]) -> tuple[float, float]:
+    def detect_position(self, markers: list[ARMarker]):
         detected = detect_ar()
         if not detected:
-            return (self.position[0], self.position[1])
+            return
         xs = []
         ys = []
+        rs = []
         for (rx, ry), m_id in detected:
             if m_id >= len(markers):
                 continue
             mx, my = markers[m_id - 1].position
-            x = (
-                mx
-                + rx * np.cos(markers[m_id - 1].normal_angle)
-                - ry * np.sin(markers[m_id - 1].normal_angle)
-            )
-            y = (
-                my
-                + rx * np.sin(markers[m_id - 1].normal_angle)
-                + ry * np.cos(markers[m_id - 1].normal_angle)
-            )
+            ma = markers[m_id - 1].normal_angle
+            cr = ma + np.arctan2(ry, rx)
+            cr = (cr + np.pi) % (2 * np.pi) - np.pi
+            cr = cr - np.pi if cr > 0 else cr + np.pi
+            rs.append(cr)
+            x = mx - (rx * np.sin(cr) + ry * np.cos(cr))
+            y = my - (- rx * np.cos(cr) + ry * np.sin(cr))
             xs.append(x)
             ys.append(y)
-            print(f"AR Marker {m_id}: Robot pos estimate ({x:.1f}, {y:.1f})")
-        dx, dy = (float(np.mean(xs)), float(np.mean(ys)))
-
-        return (dx, dy)
+            print(f"AR ID:{m_id} pos:({x:.1f},{y:.1f}) rot:{np.degrees(cr):.1f}")
+        self.position = (float(np.mean(xs)), float(np.mean(ys)))
+        self.rotation = float(np.mean(rs))
+        
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []

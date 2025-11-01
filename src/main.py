@@ -51,8 +51,8 @@ async def main():
         l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=start_area.center,
-        rotation=np.radians(180),
+        position=goals[1].center,
+        rotation=np.radians(-90),
         radius=500 / 2,
         driver=driver,
         arm=arm,
@@ -81,12 +81,11 @@ async def main():
 
     path_planner = PathPlanner(stage)
 
-    await robot.drive(path_planner.plan_path(robot.position, goals[2].center), ar_markers)
+    # await robot.drive(path_planner.plan_path(robot.position, goals[2].center), ar_markers)
 
-    # while True:
-    #     robot.detect_position(ar_markers)
-    #     # print(detect_ar())
-    #     await asyncio.sleep(1)
+    while True:
+        robot.detect_position(ar_markers)
+        await asyncio.sleep(1)
 
     # async def strategy():
     #     try:
