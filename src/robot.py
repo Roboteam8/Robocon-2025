@@ -33,8 +33,6 @@ class Robot(Visualizable):
 
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
-    __drive_task: asyncio.Task | None = field(init=False, default=None)
-
     async def drive(self, path: list[tuple[float, float]]) -> None:
         """
         指定された経路に沿ってロボットを運転する非同期メソッド
@@ -58,19 +56,26 @@ class Robot(Visualizable):
             position_diff = np.hypot(tx - cx, ty - cy)
             if abs(position_diff) > 1e-2:
                 await self.driver.straight(position_diff)
+        await asyncio.sleep(0.1)
 
     async def pickup_parcel(self):
         """
         荷物をピックアップする非同期メソッド
         """
         await self.arm.open_shoulders()
+        await asyncio.sleep(0.1)
         await self.arm.grip_hands()
+        await asyncio.sleep(0.1)
         await self.arm.close_shoulders()
+        await asyncio.sleep(0.1)
 
     async def release_parcel(self):
         await self.arm.open_shoulders()
+        await asyncio.sleep(0.1)
         await self.arm.release_hands()
+        await asyncio.sleep(0.1)
         await self.arm.close_shoulders()
+        await asyncio.sleep(0.1)
 
     def animate(self, ax: Axes) -> list[Artist]:
         animated: list[Artist] = []
