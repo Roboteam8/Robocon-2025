@@ -9,7 +9,7 @@ from robot_parts.driver import Driver, Wheel
 from stage import ARMarker, GoalArea, Stage, StartArea, Wall
 
 
-async def main(blined=False):
+async def main():
     start_area = StartArea(position=(4000, 0), size=1000)
     goals = [
         GoalArea(position=(1500, 0), size=1000, goal_id=1),
@@ -51,7 +51,7 @@ async def main(blined=False):
         l_hand=Hand(pin_num=17, release_angle=0, grip_angle=40),
     )
     robot = Robot(
-        position=((start_area.center[0] - 450, start_area.center[1])),
+        position=((start_area.center[0] - 300, start_area.center[1])),
         rotation=np.radians(0),
         radius=500 / 2,
         driver=driver,
@@ -114,7 +114,7 @@ async def main(blined=False):
 
     async def strategy():
         try:
-            start_pos = (start_area.center[0] - 450, start_area.center[1])
+            start_pos = (start_area.center[0] - 300, start_area.center[1])
             pathes = [
                 path_planner.plan_path(
                     start_pos, (goals[0].center[0] + 450, goals[0].center[1])
@@ -129,19 +129,21 @@ async def main(blined=False):
             for path in pathes:
                 await robot.pickup_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(path, ar_markers if not blined else [])
+                await robot.drive(path, ar_markers)
                 await asyncio.sleep(0.2)
                 await robot.release_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(path, ar_markers if not blined else [], back=True)
+                await robot.drive(path, ar_markers, back=True)
+                await robot.driver.turn(np.radians(180))
             while True:
                 await robot.pickup_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(pathes[1], ar_markers if not blined else [])
+                await robot.drive(pathes[1], ar_markers)
                 await asyncio.sleep(0.2)
                 await robot.release_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(pathes[1], ar_markers if not blined else [], back=True)
+                await robot.drive(pathes[1], ar_markers, back=True)
+                await robot.driver.turn(np.radians(180))
         except asyncio.CancelledError:
             print("Strategy task cancelled")
 
