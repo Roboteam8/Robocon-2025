@@ -9,7 +9,7 @@ from robot_parts.driver import Driver, Wheel
 from stage import ARMarker, GoalArea, Stage, StartArea, Wall
 
 
-async def main():
+async def main(blined=False):
     start_area = StartArea(position=(4000, 0), size=1000)
     goals = [
         GoalArea(position=(1500, 0), size=1000, goal_id=1),
@@ -129,19 +129,19 @@ async def main():
             for path in pathes:
                 await robot.pickup_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(path, ar_markers)
+                await robot.drive(path, ar_markers if not blined else [])
                 await asyncio.sleep(0.2)
                 await robot.release_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(path, ar_markers, back=True)
+                await robot.drive(path, ar_markers if not blined else [], back=True)
             while True:
                 await robot.pickup_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(pathes[1], ar_markers)
+                await robot.drive(pathes[1], ar_markers if not blined else [])
                 await asyncio.sleep(0.2)
                 await robot.release_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(pathes[1], ar_markers, back=True)
+                await robot.drive(pathes[1], ar_markers if not blined else [], back=True)
         except asyncio.CancelledError:
             print("Strategy task cancelled")
 

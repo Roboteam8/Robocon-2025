@@ -47,7 +47,8 @@ class Robot(Visualizable):
         self.__path = path[::-1] if back else path
 
         for i, (tx, ty) in enumerate(self.__path):
-            self.detect_position(markers)
+            if markers:
+                self.detect_position(markers)
             cx, cy = self.position
             if tx == cx and ty == cy:
                 continue
@@ -59,20 +60,23 @@ class Robot(Visualizable):
             self.rotation = (self.rotation + angle_diff + np.pi) % (2 * np.pi) - np.pi
 
             position_diff = np.hypot(tx - cx, ty - cy)
-            await self.driver.straight(position_diff)
-            while position_diff > 0:
-                chunk = min(position_diff, 300)
-                await self.driver.straight(-chunk if back else chunk)
-                self.detect_position(markers)
-                cx1, cy1 = self.position
-                angle_diff = (np.arctan2(ty - cy1, tx - cx1) - self.rotation + np.pi) % (
-                    2 * np.pi
-                ) - np.pi
-                if angle_diff > np.degrees(10):
-                    self.__path.insert(i, (cx1, cy1))
-                    self.rotation = np.arctan2(ty - cy1, tx - cx1)
-                    break
-                position_diff -= chunk
+            if markers:
+                while position_diff > 0:
+                    chunk = min(position_diff, 300)
+                    await self.driver.straight(-chunk if back else chunk)
+                    self.detect_position(markers)
+                    cx1, cy1 = self.position
+                    angle_diff = (np.arctan2(ty - cy1, tx - cx1) - self.rotation + np.pi) % (
+                        2 * np.pi
+                    ) - np.pi
+                    if angle_diff > np.degrees(10):
+                        self.__path.insert(i, (cx1, cy1))
+                        self.rotation = np.arctan2(ty - cy1, tx - cx1)
+                        break
+                    position_diff -= chunk
+            else:
+                await self.driver.straight(position_diff)
+
             self.position = (tx, ty)
         await asyncio.sleep(0.1)
 
