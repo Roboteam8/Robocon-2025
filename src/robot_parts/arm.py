@@ -25,7 +25,7 @@ class Shoulder:
 
     async def close(self):
         self.__close_pwm.set_dc(50)
-        await asyncio.sleep((1 / FREQUENCY) * 600)
+        await asyncio.sleep((1 / FREQUENCY) * 700)
         self.__close_pwm.set_dc(0)
         # for _ in range(400):
         #     self._close.set_state(GPIO.HIGH)  # ON

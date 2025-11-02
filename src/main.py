@@ -133,8 +133,7 @@ async def main():
                 await asyncio.sleep(0.2)
                 await robot.release_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(path, ar_markers, back=True)
-                await robot.driver.turn(np.radians(180))
+                await robot.drive(path[::-1], ar_markers)
             while True:
                 await robot.pickup_parcel()
                 await asyncio.sleep(0.2)
@@ -142,8 +141,7 @@ async def main():
                 await asyncio.sleep(0.2)
                 await robot.release_parcel()
                 await asyncio.sleep(0.2)
-                await robot.drive(pathes[1], ar_markers, back=True)
-                await robot.driver.turn(np.radians(180))
+                await robot.drive(pathes[1][::-1], ar_markers)
         except asyncio.CancelledError:
             print("Strategy task cancelled")
 

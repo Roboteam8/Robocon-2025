@@ -7,7 +7,7 @@ from gpio import GPIO, DigitalPin, PwmPin
 
 DC: float = 50
 MM_PER_SEC: float = (170 / 3) * 10
-RAD_PER_SEC: float = np.radians(660 / 5)
+RAD_PER_SEC: float = np.radians(650 / 5)
 
 
 class Wheel:

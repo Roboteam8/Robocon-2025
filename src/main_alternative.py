@@ -79,26 +79,22 @@ async def main():
     )
 
     while True:
-        await robot.arm.release_hands()
-        await robot.arm.open_shoulders()
-        await asyncio.sleep(5)
-        await robot.arm.grip_hands()
-        await robot.arm.close_shoulders()
+        await robot.pickup_parcel()
+        await asyncio.sleep(1)
         await robot.drive(
             [robot.position, (goals[0].center[0] + 300, goals[0].center[1])], []
         )
-        await robot.arm.open_shoulders()
-        await robot.arm.release_hands()
-        await asyncio.sleep(3)
+        await asyncio.sleep(1)
+        await robot.release_parcel()
+        await asyncio.sleep(1)
         await robot.drive(
             [
-                (goals[0].center[0] + 450, goals[0].center[1]),
-                (start_area.center[0] - 450, start_area.center[1]),
+                (goals[0].center[0] + 300, goals[0].center[1]),
+                (start_area.center[0] - 300, start_area.center[1]),
             ],
             [],
-            True,
         )
-        await robot.driver.turn(np.radians(180))
+        await asyncio.sleep(5)
 
 
 if __name__ == "__main__":

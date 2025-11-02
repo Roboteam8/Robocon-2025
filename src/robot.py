@@ -36,7 +36,7 @@ class Robot(Visualizable):
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
     async def drive(
-        self, path: list[tuple[float, float]], markers: list[ARMarker], back = False
+        self, path: list[tuple[float, float]], markers: list[ARMarker]
     ) -> None:
         """
         指定された経路に沿ってロボットを運転する非同期メソッド
@@ -44,7 +44,7 @@ class Robot(Visualizable):
         Args:
             path (list[tuple[float, float]]): ロボットが辿る経路の座標リスト
         """
-        self.__path = path[::-1] if back else path
+        self.__path = path
 
         for i, (tx, ty) in enumerate(self.__path):
             if markers:
@@ -63,12 +63,12 @@ class Robot(Visualizable):
             if markers:
                 while position_diff > 0:
                     chunk = min(position_diff, 300)
-                    await self.driver.straight(-chunk if back else chunk)
+                    await self.driver.straight(chunk)
                     self.detect_position(markers)
                     cx1, cy1 = self.position
-                    angle_diff = (np.arctan2(ty - cy1, tx - cx1) - self.rotation + np.pi) % (
-                        2 * np.pi
-                    ) - np.pi
+                    angle_diff = (
+                        np.arctan2(ty - cy1, tx - cx1) - self.rotation + np.pi
+                    ) % (2 * np.pi) - np.pi
                     if angle_diff > np.degrees(10):
                         self.__path.insert(i, (cx1, cy1))
                         self.rotation = np.arctan2(ty - cy1, tx - cx1)
@@ -117,8 +117,8 @@ class Robot(Visualizable):
                 continue
             mx, my = markers[m_id - 1].position
             ma = markers[m_id - 1].normal_angle
-            x = mx + rx * np.cos(ma) + ry * np.sin(ma)
-            y = my + rx * np.sin(ma) - ry * np.cos(ma)
+            x = mx + rx * np.cos(ma) - ry * np.sin(ma)
+            y = my + rx * np.sin(ma) + ry * np.cos(ma)
             xs.append(x)
             ys.append(y)
             print(f"AR ID:{m_id} pos:({x:.1f},{y:.1f})")
