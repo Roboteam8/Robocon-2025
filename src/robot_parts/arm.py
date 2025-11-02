@@ -1,9 +1,9 @@
 import asyncio
 from dataclasses import dataclass
 
-from gpio import DigitalPin, PwmPin, GPIO
+from gpio import PwmPin
 
-FREQUENCY: int = 250
+FREQUENCY: int = 416
 
 
 class Shoulder:
@@ -15,7 +15,7 @@ class Shoulder:
 
     async def open(self):
         self.__open_pwm.set_dc(50)
-        await asyncio.sleep((1 / FREQUENCY * 1.25) * 800)
+        await asyncio.sleep((1 / FREQUENCY) * 400)
         self.__open_pwm.set_dc(0)
         # for _ in range(600):
         #     self._open.set_state(GPIO.HIGH)  # ON
@@ -25,14 +25,13 @@ class Shoulder:
 
     async def close(self):
         self.__close_pwm.set_dc(50)
-        await asyncio.sleep((1 / FREQUENCY) * 340)
+        await asyncio.sleep((1 / FREQUENCY) * 600)
         self.__close_pwm.set_dc(0)
         # for _ in range(400):
         #     self._close.set_state(GPIO.HIGH)  # ON
         #     await asyncio.sleep(0.0012)
         #     self._close.set_state(GPIO.LOW)# OFF
         #     await asyncio.sleep(0.0012)
-
 
 
 class Hand:
@@ -42,9 +41,7 @@ class Hand:
 
     __init_task: asyncio.Task
 
-    def __init__(
-        self, pin_num: int, release_angle: float, grip_angle: float
-    ) -> None:
+    def __init__(self, pin_num: int, release_angle: float, grip_angle: float) -> None:
         self.__pwm = PwmPin(pin_num, frequency=50)
         self.__release_angle = release_angle
         self.__grip_angle = grip_angle

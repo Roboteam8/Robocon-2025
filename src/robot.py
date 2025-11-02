@@ -10,7 +10,6 @@ from ar import ARMarker
 from robot_parts.arm import Arm
 from robot_parts.camera import detect_ar
 from robot_parts.driver import Driver
-from robot_parts.ear import hear_ultrasonic
 from visualize import Visualizable
 
 
@@ -37,7 +36,7 @@ class Robot(Visualizable):
     __path: list[tuple[float, float]] = field(init=False, default_factory=list)
 
     async def drive(
-        self, path: list[tuple[float, float]], markers: list[ARMarker]
+        self, path: list[tuple[float, float]], markers: list[ARMarker], back = False
     ) -> None:
         """
         指定された経路に沿ってロボットを運転する非同期メソッド
@@ -45,9 +44,9 @@ class Robot(Visualizable):
         Args:
             path (list[tuple[float, float]]): ロボットが辿る経路の座標リスト
         """
-        self.__path = path
+        self.__path = path[::-1] if back else path
 
-        for tx, ty in self.__path:
+        for i, (tx, ty) in enumerate(self.__path):
             self.detect_position(markers)
             cx, cy = self.position
             if tx == cx and ty == cy:
@@ -61,6 +60,19 @@ class Robot(Visualizable):
 
             position_diff = np.hypot(tx - cx, ty - cy)
             await self.driver.straight(position_diff)
+            while position_diff > 0:
+                chunk = min(position_diff, 300)
+                await self.driver.straight(-chunk if back else chunk)
+                self.detect_position(markers)
+                cx1, cy1 = self.position
+                angle_diff = (np.arctan2(ty - cy1, tx - cx1) - self.rotation + np.pi) % (
+                    2 * np.pi
+                ) - np.pi
+                if angle_diff > np.degrees(10):
+                    self.__path.insert(i, (cx1, cy1))
+                    self.rotation = np.arctan2(ty - cy1, tx - cx1)
+                    break
+                position_diff -= chunk
             self.position = (tx, ty)
         await asyncio.sleep(0.1)
 
@@ -68,13 +80,13 @@ class Robot(Visualizable):
         """
         荷物をピックアップする非同期メソッド
         """
-        await self.arm.open_shoulders()
         await self.arm.release_hands()
-        distance = float("NaN")
-        while distance >= 150:
-            distance = await hear_ultrasonic()
-            if distance >= 150:
-                await self.driver.straight(1)
+        await self.arm.open_shoulders()
+        # distance = float("inf")
+        # while distance >= 150:
+        #     distance = await hear_ultrasonic()
+        #     if distance >= 150:
+        #         await self.driver.straight(10)
         await asyncio.sleep(0.1)
         await self.arm.grip_hands()
         await asyncio.sleep(0.1)
@@ -86,8 +98,9 @@ class Robot(Visualizable):
         await asyncio.sleep(0.1)
         await self.arm.release_hands()
         await asyncio.sleep(0.1)
-        await self.arm.close_shoulders()
-        await asyncio.sleep(0.1)
+        await self.driver.straight(-300)
+        # await self.arm.close_shoulders()
+        # await asyncio.sleep(0.1)
 
     def detect_position(self, markers: list[ARMarker]):
         detected = detect_ar()

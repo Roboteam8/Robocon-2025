@@ -25,16 +25,16 @@ async def hear_ultrasonic(timeout=float("NaN")):
     while GPIO.input(ECHO) == GPIO.LOW:
         pulse_start = time.time()
         if time.time() - start > timeout:
-            return float("NaN")
+            return float("inf")
 
     start = time.time()
     while GPIO.input(ECHO) == GPIO.HIGH:
         pulse_end = time.time()
         if time.time() - start > timeout:
-            return float("NaN")
+            return float("inf")
 
     if pulse_start is None or pulse_end is None:
-        return float("NaN")
+        return float("inf")
 
     pulse_duration = pulse_end - pulse_start
     distance = pulse_duration * 343000 / 2
