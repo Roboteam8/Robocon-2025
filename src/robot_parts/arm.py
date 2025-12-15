@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from gpio import PwmPin
 
-FREQUENCY: int = 416
+FREQUENCY: int = 100
 
 
 class Shoulder:
@@ -25,7 +25,7 @@ class Shoulder:
 
     async def close(self):
         self.__close_pwm.set_dc(50)
-        await asyncio.sleep((1 / FREQUENCY) * 700)
+        await asyncio.sleep((1 / FREQUENCY) * 500)
         self.__close_pwm.set_dc(0)
         # for _ in range(400):
         #     self._close.set_state(GPIO.HIGH)  # ON

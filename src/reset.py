@@ -45,9 +45,15 @@ async def main():
         driver=driver,
         arm=arm,
     )
-    await robot.arm.release_hands()
-    await robot.arm.open_shoulders()
+    while True:
+        await robot.arm.open_shoulders()
+        await asyncio.sleep(1)
+        await robot.arm.close_shoulders()
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
